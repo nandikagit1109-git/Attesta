@@ -45,7 +45,10 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        # Demo-mode wildcard for hosted previews (JWT travels in the Authorization
+        # header, never cookies). Tighten to explicit origins for real use.
+        return ["*"] if origins == ["*"] else origins
 
     @property
     def allowed_extension_list(self) -> list[str]:

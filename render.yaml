@@ -1,0 +1,38 @@
+# Render Blueprint — TrustPass backend (FastAPI)
+# One click: https://render.com/deploy?repo=<your-repo-url>
+# Free instance = ephemeral disk (SQLite resets on redeploy); swap in Postgres
+# via DATABASE_URL for persistence beyond the demo.
+services:
+  - type: web
+    name: trustpass-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install ".[extraction]"
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:////tmp/trustpass.db
+      # Demo-mode wildcard: any origin may call the API (JWT travels in the
+      # Authorization header, never cookies). Tighten for real deployments.
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: TESSERACT_CMD
+        sync: false
+      - key: CHAIN_RPC_URL
+        value: http://127.0.0.1:8545
+      - key: CONTRACT_ADDRESS
+        sync: false

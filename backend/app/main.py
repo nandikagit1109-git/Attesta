@@ -30,10 +30,11 @@ def create_app() -> FastAPI:
             f"{TrustState.REVOKED_OR_TAMPERED.value}."
         ),
     )
+    origins = settings.cors_origin_list
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origin_list,
-        allow_credentials=True,
+        allow_origins=origins,
+        allow_credentials=origins != ["*"],  # wildcard + credentials is invalid per CORS spec
         allow_methods=["*"],
         allow_headers=["*"],
     )
