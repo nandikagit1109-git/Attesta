@@ -17,6 +17,8 @@ dist/
 .env
 .env.local
 .env.*.local
+render.key
+.vercel/
 
 # Databases
 *.db
