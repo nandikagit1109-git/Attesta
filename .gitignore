@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Databases
+*.db
+*.sqlite3
+
+# Uploads / documents (stay off-chain and out of git)
+backend/uploads/
+uploads/
+
+# Build & artifacts
+blockchain/artifacts/
+blockchain/cache/
+blockchain/deployments/
+coverage/
+*.tsbuildinfo
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

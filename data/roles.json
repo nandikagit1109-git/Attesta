@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "default_target_role_id": "data-analyst",
+  "description": "Target roles for the Career Mentor Agent. skill_id must exist in skills.json. Weight = importance for the role (0..1). Verified skills count above unverified ones at scoring time (agent-side, not in this file).",
+  "roles": [
+    {
+      "id": "data-analyst",
+      "title": "Data Analyst",
+      "is_default": true,
+      "description": "Turns raw data into decisions: queries, cleans, analyzes and visualizes data, and communicates findings to non-technical stakeholders.",
+      "required_skills": [
+        { "skill_id": "sql", "weight": 0.95 },
+        { "skill_id": "python", "weight": 0.9 },
+        { "skill_id": "data-visualization", "weight": 0.85 },
+        { "skill_id": "excel", "weight": 0.8 },
+        { "skill_id": "statistics", "weight": 0.7 },
+        { "skill_id": "communication", "weight": 0.6 }
+      ]
+    },
+    {
+      "id": "frontend-developer",
+      "title": "Frontend Developer",
+      "is_default": false,
+      "description": "Builds user-facing web interfaces with modern JavaScript frameworks and cares about UX, accessibility and performance.",
+      "required_skills": [
+        { "skill_id": "javascript", "weight": 0.95 },
+        { "skill_id": "react", "weight": 0.9 },
+        { "skill_id": "typescript", "weight": 0.75 },
+        { "skill_id": "git", "weight": 0.7 },
+        { "skill_id": "communication", "weight": 0.5 }
+      ]
+    },
+    {
+      "id": "machine-learning-engineer",
+      "title": "Machine Learning Engineer",
+      "is_default": false,
+      "description": "Trains, evaluates and ships ML models, bridging data science and production engineering.",
+      "required_skills": [
+        { "skill_id": "python", "weight": 0.95 },
+        { "skill_id": "machine-learning", "weight": 0.95 },
+        { "skill_id": "statistics", "weight": 0.8 },
+        { "skill_id": "pandas", "weight": 0.75 },
+        { "skill_id": "docker", "weight": 0.5 },
+        { "skill_id": "sql", "weight": 0.6 }
+      ]
+    }
+  ]
+}

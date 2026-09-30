@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "description": "TrustPass standard skill taxonomy. The Skill Graph Agent maps evidence to these ids via name or aliases; deterministic fallback uses the same file.",
+  "skills": [
+    { "id": "python", "name": "Python", "category": "programming", "aliases": ["py", "python3"] },
+    { "id": "sql", "name": "SQL", "category": "data", "aliases": ["mysql", "postgresql", "postgres", "sqlite", "queries"] },
+    { "id": "excel", "name": "Excel", "category": "data", "aliases": ["microsoft excel", "spreadsheet", "spreadsheets", "vlookup", "pivot tables"] },
+    { "id": "pandas", "name": "Pandas", "category": "data", "aliases": ["dataframes"] },
+    { "id": "numpy", "name": "NumPy", "category": "data", "aliases": ["np"] },
+    { "id": "statistics", "name": "Statistics", "category": "data", "aliases": ["statistical analysis", "hypothesis testing", "descriptive stats"] },
+    { "id": "data-analysis", "name": "Data Analysis", "category": "data", "aliases": ["data analytics", "data cleaning", "eda"] },
+    { "id": "data-visualization", "name": "Data Visualization", "category": "data", "aliases": ["charts", "dashboards", "matplotlib", "seaborn", "plotly"] },
+    { "id": "power-bi", "name": "Power BI", "category": "data", "aliases": ["powerbi", "dax"] },
+    { "id": "tableau", "name": "Tableau", "category": "data", "aliases": ["tableau desktop"] },
+    { "id": "machine-learning", "name": "Machine Learning", "category": "data", "aliases": ["ml", "scikit-learn", "sklearn", "regression", "classification"] },
+    { "id": "git", "name": "Git", "category": "tooling", "aliases": ["github", "version control"] },
+    { "id": "docker", "name": "Docker", "category": "tooling", "aliases": ["containers"] },
+    { "id": "react", "name": "React", "category": "web", "aliases": ["reactjs", "react.js"] },
+    { "id": "javascript", "name": "JavaScript", "category": "web", "aliases": ["js", "es6"] },
+    { "id": "typescript", "name": "TypeScript", "category": "web", "aliases": ["ts"] },
+    { "id": "nodejs", "name": "Node.js", "category": "web", "aliases": ["node", "express"] },
+    { "id": "communication", "name": "Communication", "category": "soft", "aliases": ["presentation", "writing", "reporting"] },
+    { "id": "teamwork", "name": "Teamwork", "category": "soft", "aliases": ["collaboration", "team project"] },
+    { "id": "problem-solving", "name": "Problem Solving", "category": "soft", "aliases": ["analytical thinking", "critical thinking"] }
+  ]
+}
