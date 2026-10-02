@@ -1,4 +1,0 @@
-# Tests (Stage 4)
-
-Hardhat/Chai tests for `VerifiableCredentialRegistry`: issue · verify · revoke ·
-unauthorized revoke · duplicate ID · tampered hash.

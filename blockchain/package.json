@@ -1,17 +1,20 @@
 {
-  "name": "trustpass-blockchain",
+  "name": "attesta-blockchain",
   "private": true,
   "version": "0.1.0",
-  "description": "VerifiableCredentialRegistry — tamper-evident credential records for TrustPass",
+  "description": "VerifiableCredentialRegistry — tamper-evident credential records for Attesta",
   "scripts": {
     "node": "hardhat node",
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy:local": "hardhat run scripts/deploy.ts --network localhost"
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.15",
+    "@nomicfoundation/hardhat-toolbox": "^6.0.0",
+    "hardhat": "^2.26.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.3",
     "dotenv": "^16.4.5"
   }
 }

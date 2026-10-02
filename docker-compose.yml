@@ -1,5 +1,7 @@
-# TrustPass — laptop-friendly dev compose (refined in Stage 6).
+# Attesta — laptop-friendly dev compose.
 # Usage: docker compose up   (then open http://localhost:5173)
+# The chain service runs the Hardhat node; the backend deploys the registry
+# contract to it on first request (see backend/app/chain.py, ensure_chain).
 services:
   chain:
     image: node:20-alpine
@@ -15,11 +17,17 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
+      - ./data:/data
     environment:
-      DATABASE_URL: sqlite:////app/trustpass.db
+      DATABASE_URL: sqlite:////app/attesta.db
       CHAIN_RPC_URL: http://chain:8545
+      CONTRACT_ADDRESS: ""
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-    command: sh -c "pip install -e . && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      # Docker cannot see the host Tesseract binary; PDF extraction still works.
+      TESSERACT_CMD: ""
+    command: >
+      sh -c "pip install -e '.[dev,extraction,chain]' &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     depends_on:
@@ -30,6 +38,8 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
+    environment:
+      VITE_API_BASE: http://localhost:8000
     command: sh -c "npm install && npm run dev -- --host"
     ports:
       - "5173:5173"

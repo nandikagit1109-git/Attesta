@@ -35,6 +35,9 @@ blockchain/deployments/
 coverage/
 *.tsbuildinfo
 
+# Per-machine chain deployment record (written by scripts/deploy.ts)
+data/chain.json
+
 # OS / editors
 .DS_Store
 Thumbs.db

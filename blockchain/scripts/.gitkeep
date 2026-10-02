@@ -1,4 +1,0 @@
-# Scripts (Stage 4)
-
-`deploy.ts` will deploy `VerifiableCredentialRegistry` to the local node and print
-the address to paste into `CONTRACT_ADDRESS` in `backend/.env`.

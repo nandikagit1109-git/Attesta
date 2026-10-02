@@ -1,8 +1,0 @@
-# Contracts (Stage 4)
-
-`VerifiableCredentialRegistry.sol` will live here. Functions:
-`issueCredential()`, `verifyCredential()`, `revokeCredential()`, `getCredential()`.
-
-Store only: credential ID, document hash, issuer address, recipient address,
-timestamp, revoked flag. Only the original issuer can revoke; duplicate IDs are
-rejected; events are emitted for issue and revoke.
