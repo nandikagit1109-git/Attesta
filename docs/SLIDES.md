@@ -1,7 +1,6 @@
 # Slides — Attesta (DecentraHack 2.0, Round 2)
 
-One slide per beat, ~15 seconds each when narrated. Screenshot slots map to
-`docs/screenshots/`.
+One slide per beat, ~15 seconds each when narrated.
 
 ## Slide 1 — Problem
 

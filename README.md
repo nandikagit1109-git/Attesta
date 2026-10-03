@@ -106,22 +106,6 @@ One click each on the login page — no passwords to type on stage:
 
 Sample data is labeled "Sample data" everywhere it appears. `./make seed` (or the Reset demo data button) rebuilds: 1 student, 1 college issuer, 1 recruiter; 3 real certificate PDFs (Python verified, SQL issued-then-revoked, Excel left unverified); 1 pre-staged tampered copy; 2 projects.
 
-## Screenshots
-
-Placeholders — drop the real captures into `docs/screenshots/` with these names:
-
-| File | Shows |
-|---|---|
-| `docs/screenshots/landing-verify.png` | Landing page with the live verify box and a verdict |
-| `docs/screenshots/verify-diff.png` | Public verify page with the highlighted hash diff on a tampered file |
-| `docs/screenshots/agent-trace.png` | Evidence detail with the agent trace panel |
-| `docs/screenshots/skill-graph.png` | React Flow skill graph, verified vs unverified borders |
-| `docs/screenshots/career-gap.png` | Career gap with missing skills and project ideas |
-| `docs/screenshots/issuer-desk.png` | Issuer queue, CSV bulk issuance, revoke with reason |
-| `docs/screenshots/receipt-qr.png` | Receipt page with QR code and permalink |
-| `docs/screenshots/recruiter-match.png` | Recruiter job match with verified-only score |
-| `docs/screenshots/audit-log.png` | Audit log |
-
 ## Project structure
 
 ```
@@ -134,6 +118,7 @@ trustpass/
 ├── scripts/           make.py gate runner, seed_demo.py, demo_check.py
 ├── data/              skills.json taxonomy (82 skills), roles.json, chain.json (generated)
 ├── docs/              assumptions, architecture, trust model, demo script, slides
+├── render.yaml        one-click Render blueprint for the backend
 ├── Makefile + make    identical gate targets for CI and the Windows demo laptop
 └── .github/workflows  CI: lint + contract + backend + frontend tests
 ```
