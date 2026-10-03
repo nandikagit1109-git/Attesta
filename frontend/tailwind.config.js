@@ -4,21 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Trust palette: verified=emerald, unverified=amber, revoked=rose
-        "tp-verified": "#059669",
-        "tp-unverified": "#d97706",
-        "tp-revoked": "#e11d48",
+        // Flat editorial palette. Nothing outside these five + borders.
+        paper: "#EFE7D6",
+        surface: "#E4D8C0",
+        ink: "#2E1F14",
+        rust: "#B4451F",
+        ochre: "#C8922A",
       },
       fontFamily: {
-        sans: [
-          "Inter",
-          "ui-sans-serif",
-          "system-ui",
-          "-apple-system",
-          "Segoe UI",
-          "Roboto",
-          "sans-serif",
-        ],
+        display: ["Fraunces", "Georgia", "serif"],
+        sans: ["'IBM Plex Sans'", "system-ui", "sans-serif"],
+        mono: ["'IBM Plex Mono'", "ui-monospace", "monospace"],
+      },
+      maxWidth: {
+        page: "76rem",
       },
     },
   },

@@ -69,6 +69,35 @@ def update_profile(
 public_router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 
+@public_router.get("")
+def student_directory(db: Session = Depends(get_db)):
+    """Public directory of students, honoring each student's privacy toggles.
+
+    The recruiter search page lists candidates from here; job match then runs
+    per candidate id. Only opted-in fields are returned, same as the single
+    public profile.
+    """
+    students = db.query(User).filter(User.role == "student").order_by(User.full_name).all()
+    results = []
+    for user in students:
+        toggles = {**DEFAULT_PUBLIC_FIELDS, **(user.public_fields or {})}
+        entry: dict = {
+            "user_id": user.id,
+            "wallet_address": user.wallet_address,
+        }
+        if toggles.get("full_name"):
+            entry["full_name"] = user.full_name
+        if toggles.get("headline"):
+            entry["headline"] = user.headline
+        if toggles.get("email"):
+            entry["email"] = user.email
+        if toggles.get("skills"):
+            verified, unverified = _split_skills(db, user)
+            entry["skills"] = {"verified": sorted(verified), "unverified": sorted(unverified)}
+        results.append(entry)
+    return results
+
+
 @public_router.get("/{user_id}")
 def public_profile(user_id: str, db: Session = Depends(get_db)):
     user = db.get(User, user_id)

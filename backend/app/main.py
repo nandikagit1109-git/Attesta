@@ -18,6 +18,7 @@ from .routers import (
     audit,
     auth,
     career,
+    chaininfo,
     credentials,
     evidence,
     health,
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(career.router)
     app.include_router(profiles.router)
     app.include_router(profiles.public_router)
+    app.include_router(chaininfo.router)
     app.include_router(audit.router)
     return app
 

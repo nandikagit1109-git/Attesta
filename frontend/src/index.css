@@ -2,11 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    @apply antialiased;
-  }
-  body {
-    @apply bg-slate-50 text-slate-800;
-  }
+/* Flat design system. No shadows, gradients or blurs anywhere. */
+html,
+body {
+  background-color: #efe7d6;
+  color: #2e1f14;
+}
+
+* {
+  border-radius: 0;
+}
+
+button,
+a {
+  transition: none;
+}
+
+input,
+select,
+textarea {
+  background-color: transparent;
+  border: 1px solid #2e1f14;
+  padding: 0.4rem 0.5rem;
+  color: #2e1f14;
+  font-size: 0.875rem;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #b4451f;
+  outline-offset: 0;
+}
+
+/* React Flow: keep the canvas flat and ruled, no dot grids, no glow. */
+.react-flow {
+  background-color: #efe7d6;
+}
+
+.react-flow__node {
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 12px;
+  cursor: default;
+}
+
+.react-flow__edge-path {
+  stroke: #2e1f14;
+  stroke-width: 1;
+}
+
+.react-flow__edge-text {
+  font-size: 10px;
+}
+
+.react-flow__edge-textbg {
+  fill: #efe7d6;
+}
+
+.react-flow__controls {
+  border: 1px solid #2e1f14;
+  box-shadow: none;
+}
+
+.react-flow__controls-button {
+  background: #e4d8c0;
+  border-bottom: 1px solid #2e1f14;
+  fill: #2e1f14;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+/* Word wrapping inside cells and long hash strings. */
+.mono-break {
+  word-break: break-all;
 }

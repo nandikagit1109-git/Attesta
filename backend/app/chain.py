@@ -57,6 +57,11 @@ def _spawn_detached(cmd: list[str], cwd: Path, log_path: Path) -> None:
     subprocess.Popen(cmd, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, **kwargs)
 
 
+def contract_address() -> str:
+    """Public helper: the deployed registry address (shared config first)."""
+    return _read_shared_config() or settings.contract_address
+
+
 def _read_shared_config() -> str:
     path = Path(settings.resolve(settings.chain_config_path))
     if path.exists():

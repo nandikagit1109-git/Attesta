@@ -14,4 +14,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // The three heavyweight libraries ship as their own cacheable chunks.
+        manualChunks: {
+          ethers: ["ethers"],
+          flow: ["@xyflow/react"],
+          charts: ["recharts"],
+        },
+      },
+    },
+  },
 });
