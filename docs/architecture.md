@@ -35,16 +35,19 @@
 ## Core flows
 
 **Upload → analyze (student)**
-`POST /api/evidence/upload` (file + type validation) → `POST /api/evidence/analyze` → orchestrator runs Evidence Verification then Skill Graph → every agent run appended to the audit log (agent name, input hash, output, model, fallback-used, timestamp). Result is `AI-extracted (unverified)`.
+`POST /api/evidence` (multipart file + type/size validation) → orchestrator runs Evidence Verification then Skill Graph → every agent run appended to the audit log and returned in the response. Result is `AI-extracted (unverified)`.
 
 **Issue (issuer)**
-Issuer reviews extracted fields → `POST /api/credentials/issue` → backend anchors SHA-256 hash via `issueCredential()` (MetaMask signature by issuer, or demo key from `.env`) → student's item becomes `Issuer-verified`.
+Issuer reviews the approval queue (`GET /api/credentials/queue`) → `POST /api/credentials/issue` → backend anchors the SHA-256 via `issueCredential()` signed with the demo key from `.env` (MetaMask optional) → the Integrity Agent immediately re-checks and the evidence becomes `Issuer-verified`. Bulk variant: `POST /api/credentials/bulk` (CSV).
 
-**Verify (recruiter/QR)**
-`GET /api/profiles/{username}` renders opted-in profile → Integrity Agent runs per credential: recompute SHA-256 of the referenced document, compare with on-chain hash, check revocation → `match` / `mismatch` / `revoked` with reasons → UI badge.
+**Verify (anyone, no login)**
+The browser computes SHA-256 with Web Crypto → `POST /api/verify/hash` (optionally with `credential_id`, as receipt links do) → hash lookup, on-chain status, revocation → `Issuer-verified` / `Tampered` / `Revoked` / `Unknown` with issuer, block number and transaction hash. The receipt page additionally reads the issuance transaction directly from the node with ethers.js.
 
 **Gap analysis (student)**
-`POST /api/career/analyze` with target role from `data/roles.json` → Career Mentor weights `Issuer-verified` skills above unverified → missing skills, learning priorities, three project ideas, portfolio improvements.
+`GET /api/career/gap?role=data-analyst` → Career Mentor weights `Issuer-verified` skills above unverified → score, matched, missing skills with priorities, three project ideas, reasoning. Recruiter variant: `POST /api/career/job-match` scores a pasted JD from verified skills only.
+
+**Demo reset**
+`POST /api/demo/reset` wipes and rebuilds the canonical dataset (dev only; production refuses). Same code path as `./make seed`.
 
 ## Key principles
 

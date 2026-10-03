@@ -1,14 +1,14 @@
 # Trust Model
 
-TrustPass has exactly **three** trust states. Every UI label and API response uses one of them — no synonyms, no fourth state.
-
-## The three states
+Attesta has exactly **five** trust states. Every UI label and API response uses one of them — no synonyms, no sixth state. Canonical source: [backend/app/states.py](../backend/app/states.py).
 
 | State | Meaning | Who/what may set it |
 |---|---|---|
-| `AI-extracted (unverified)` | A suggestion extracted from a document by the LLM/OCR pipeline. **Never proof of authenticity.** | Evidence Verification Agent, Skill Graph Agent |
-| `Issuer-verified` | Issuer-signed on-chain record **AND** document hash matches the anchored hash **AND** not revoked. All three, together. | Integrity Agent only |
-| `Revoked or tampered` | Revoked on-chain, or the stored document hash differs from the on-chain hash. | Integrity Agent only |
+| `AI-extracted (unverified)` | A suggestion extracted from a document by the agents. **Never proof of authenticity.** | Evidence Verification Agent, Skill Graph Agent |
+| `Issuer-verified` | On-chain record exists **AND** document hash matches the anchored hash **AND** not revoked. All three, together. | Integrity Agent only |
+| `Revoked` | The original issuer revoked the credential. Reason and timestamp are public. | Integrity Agent only |
+| `Tampered` | A presented hash differs from the anchored hash. | Integrity Agent only |
+| `Unknown` | A hash is not anchored on-chain at all. Verify page only. | verify endpoint |
 
 ## State transitions
 
@@ -16,49 +16,32 @@ TrustPass has exactly **three** trust states. Every UI label and API response us
                           upload + analyze
         Document ─────────────────────────────▶ AI-extracted (unverified)
                                                      │
-                                        issuer signs issueCredential()
+                                        issuer issues issueCredential()
                                                      ▼
                                               Issuer-verified
                                                      │
                           revokeCredential()  ┌──────┴─────────┐
-                    document replaced/edited  ▼                ▼
-                                        Revoked or tampered
+                    presented hash ≠ anchored ▼                ▼
+                                              Revoked      Tampered
 ```
 
 Rules:
 
-- `AI-extracted (unverified)` never promotes itself. Only an issuer signature on-chain promotes it.
-- "Verified" is **conjunction**: signature present ∧ hash matches ∧ not revoked. A missing piece is not verified.
-- Only the Integrity Agent (deterministic code, no LLM) decides `Issuer-verified` / `Revoked or tampered`. No other component computes trust state.
+- `AI-extracted (unverified)` never promotes itself. Only an issuer's on-chain record promotes it.
+- "Verified" is **conjunction**: on-chain record ∧ hash matches ∧ not revoked. A missing piece is not verified.
+- Only the Integrity Agent (deterministic code, no LLM) decides `Issuer-verified`, `Revoked` and `Tampered`.
+- A bare hash that matches nothing reports `Unknown`. It is deliberately not guessed into `Tampered`: the server never pretends to know what an unmatched file "used to be". `Tampered` is earned by checking a presented hash **against a specific credential** (the receipt permalink / QR flow passes `credential_id`).
 
 ## Agent claims vs. facts
 
 | Agent | May claim | May never claim |
 |---|---|---|
 | Evidence Verification | "These fields were extracted with confidence X; flags: name mismatch, future date…" | "This document is authentic" |
-| Skill Graph | "Evidence maps to skill nodes with strength Y" | That mapping is authoritative truth |
+| Skill Graph | "Evidence maps to skill nodes with strength Y" | That the mapping is authoritative truth |
 | Career Mentor | "For role R you lack skills S; here are project ideas" | That unverified skills are proven |
-| Integrity | "match / mismatch / revoked, with reasons" | Anything beyond hash + revocation facts |
-| Profile | Summary using **only** facts present in the profile | Invented achievements |
+| Integrity | "On-chain record exists / hash differs / issuer revoked it" | Anything about document content |
+| Profile | "Facts on the profile, summarized" | Claims beyond profile facts |
 
-## Why blockchain
+## Why a blockchain at all
 
-Multiple **independent** issuers (a college, a company, a hackathon organizer) write credential records. A recruiter verifying a student's passport should not have to trust TrustPass's servers, our database, or any single owner of the data. Anchoring SHA-256 document hashes on-chain gives:
-
-1. **Tamper-evidence** — once written, a credential record can't be quietly rewritten (revocation is an explicit, issuer-only transaction).
-2. **Issuer independence** — no consortium database to trust; each issuer signs from its own key.
-3. **Recruiter sovereignty** — anyone with a node/RPC can re-check a hash and revocation flag.
-
-Scope discipline: the chain is used **only** for tamper-evident credential records. No tokens, no trading, no speculation.
-
-## On-chain data (exhaustive)
-
-`credentialId`, `documentHash (sha256)`, `issuerAddress`, `recipientAddress`, `timestamp`, `revoked`.
-
-Never on-chain: PDFs, images, passwords, Aadhaar or any government ID numbers, phone numbers, emails, names.
-
-## Privacy boundaries
-
-- Public profiles expose only fields the student explicitly opted in to.
-- Documents live off-chain, behind a storage-adapter interface (local disk now; IPFS/Supabase adapters stubbed, P2).
-- Auth: bcrypt password hashing + JWT. Files validated by type and size before storage.
+Several independent issuers write records, and anyone can verify without trusting Attesta's servers. The chain stores only: credential ID, document hash, issuer address, recipient address, timestamp, revoked flag. No tokens, no trading, no speculation. Receipts re-read the issuance transaction directly from the node in the browser (ethers.js), so even the API's honesty is not required for a verdict.

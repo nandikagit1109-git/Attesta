@@ -1,112 +1,154 @@
-# TrustPass — AI-Powered Verifiable Skill & Achievement Passport
+# Attesta — verified student credentials
 
-> Student skill identity: AI agents extract evidence, issuers sign credentials on-chain, recruiters verify without trusting our servers.
+> AI agents analyze evidence, issuers confirm, SHA-256 hashes are anchored on-chain, and anyone can verify a file without trusting Attesta's servers.
 
-**DecentraHack 2.0** — themes: Agentic AI · Blockchain/Web3 · Open Source. Live offline demo: **9 October 2026**.
+**DecentraHack 2.0** — themes: Agentic AI · Blockchain/Web3 · Open Source. Live offline demo: 9 October 2026.
 
-## Problem
+## What it does
 
-Certificates, projects, internships and hackathon results are scattered across platforms. Recruiters can't verify them, colleges verify documents by hand, and students don't know which skills their target career needs.
-
-## Solution
-
-One skill identity: AI agents analyze evidence into a skill graph, issuers confirm credentials, SHA-256 hashes are anchored on a blockchain, and students share a public profile via link or QR code.
-
-## Trust model (the three states — never blurred)
+Students upload certificates, projects and internship letters. Five AI agents read the documents, map skills onto a standard taxonomy, and compare them to a target career. A college issuer approves the evidence and its SHA-256 hash is written to a public blockchain. From then on, anyone — recruiters especially — can verify a file in the browser and get one of four answers, with cryptographic proof:
 
 | State | Meaning |
 |---|---|
-| `AI-extracted (unverified)` | An AI/OCR suggestion extracted from a document. **Never proves authenticity.** |
-| `Issuer-verified` | Issuer-signed on-chain record **AND** matching document hash **AND** not revoked. |
-| `Revoked or tampered` | Revoked on-chain, or the document hash no longer matches the anchored hash. |
+| `AI-extracted (unverified)` | An agent's suggestion. **Never proof of authenticity.** |
+| `Issuer-verified` | On-chain record exists **AND** file hash matches **AND** not revoked. |
+| `Revoked` | The original issuer revoked it. Reason and timestamp are public. |
+| `Tampered` | The presented hash differs from the anchored hash. Changed hex characters are highlighted. |
 
-Every UI label and API response uses **only** these three states. The canonical definition lives in
-[backend/app/states.py](backend/app/states.py) and is mirrored in [frontend/src/lib/trustStates.ts](frontend/src/lib/trustStates.ts).
+`Unknown` appears on the public verify page when a hash is not anchored on-chain at all.
 
 ## Why blockchain (and why nothing else)
 
-Multiple independent issuers (colleges, companies, hackathon organizers) write credential records, and any recruiter can check them **without trusting TrustPass servers or a single database owner**. The chain gives tamper-evidence: once anchored, nobody — not even us — can quietly rewrite a credential hash.
+Several independent issuers (colleges, employers, hackathon organizers) write credential records, and any recruiter can check them **without trusting Attesta's servers or a single database owner**. The chain gives tamper-evidence: once anchored, nobody — not even us — can quietly rewrite a credential hash.
 
-The chain is used **only** for tamper-evident credential records. It stores: credential ID, document hash, issuer address, recipient address, timestamp, revoked flag. **No tokens, no trading, no speculation.** PDFs, images, passwords, Aadhaar/ID numbers, phone numbers, emails and names never go on-chain.
+The chain stores **only**: credential ID, document hash, issuer address, recipient address, timestamp, revoked flag. **No tokens, no trading, no speculation.** PDFs, images, passwords, ID numbers, phone numbers, emails and names never go on-chain.
+
+And the proof is re-checkable at the edge: the receipt page reads the issuance transaction **directly from the node with ethers.js in your browser**, so the verdict does not depend on Attesta's API being honest.
+
+## Features
+
+1. Public **Verify any file** page: drop a file, the browser computes SHA-256 (Web Crypto), the app looks it up on-chain and shows Verified / Tampered / Revoked / Unknown with issuer, block number, transaction hash and a side-by-side hash comparison that highlights the changed hex characters.
+2. **Agent Trace** panel: every agent run with input summary, output, confidence, flags, duration, and whether the deterministic fallback was used.
+3. **Shareable receipt** with permalink and QR code.
+4. **Recruiter job match**: paste a job description, get a score computed from issuer-verified skills only, unverified skills listed separately, reasoning shown.
+5. **Demo mode**: one-click login as Student / Issuer / Recruiter, a Reset demo data button, and a Tamper with this file button that flips one byte in a stored copy to demonstrate failure.
+6. **Skill graph** (React Flow): verified and unverified nodes differ by border style and label, never by color alone. Edges carry extraction strength.
+7. **Revocation** with reason and timestamp, visible on the public verify page.
+8. **Issuer CSV bulk issuance** (columns: student_email, title, file_name).
+9. **Privacy toggles** per profile field; the public profile shows only opted-in fields.
+10. **Audit log** of every issue, revoke, verify and agent run.
 
 ## Architecture
 
-```
-                    ┌──────────────────────────────────────────────┐
-                    │                  TrustPass                   │
-                    │                                              │
- React + Vite SPA   │   FastAPI backend          Agents            │      Hardhat / Sepolia
- ┌──────────────┐   │   ┌──────────────┐   ┌───────────────────┐  │   ┌─────────────────────┐
- │ Student UI   │──▶│   │ REST API     │──▶│ Orchestrator      │  │   │ VerifiableCredential│
- │ Issuer UI    │   │   │ JWT + RBAC   │   │ ├ Evidence Verify │  │   │ Registry (Solidity) │
- │ Recruiter/QR │◀──│   │ SQLite/PG    │   │ ├ Skill Graph     │  │   │ issue/verify/revoke │
- │ Skill graph  │   │   │ Audit log    │   │ ├ Career Mentor   │  │   │ get Credential      │
- └──────────────┘   │   └──────┬───────┘   │ ├ Integrity       │──┼──▶│ hash anchor only    │
-       ▲            │          │           │ └ Profile         │  │   └─────────────────────┘
-       │ QR link    │   ┌──────▼───────┐   └───────────────────┘  │
- ┌──────────────┐   │   │ Documents    │   LLM: OpenAI-compatible │
- │ Public       │   │   │ (local disk, │   wrapper + deterministic│
- │ profile      │   │   │ IPFS/Supabase│   keyword fallback —     │
- └──────────────┘   │   │ adapters)    │   works with no API key  │
-                    │   └──────────────┘   └───────────────────┘  │
-                    └──────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph Browser
+        SPA["React + Vite SPA<br/>student · issuer · recruiter · public"]
+        WC["Web Crypto SHA-256<br/>+ ethers.js direct read"]
+    end
+    subgraph Backend["FastAPI backend"]
+        API["REST API · JWT + RBAC<br/>audit log"]
+        ORCH["Orchestrator"]
+        EV["Evidence<br/>Agent"]
+        SG["Skill Graph<br/>Agent"]
+        CM["Career Mentor<br/>Agent"]
+        IA["Integrity Agent<br/>(no LLM)"]
+        PA["Profile<br/>Agent"]
+        EX["pdfplumber →<br/>Tesseract fallback"]
+    end
+    LLM["LLM wrapper<br/>strict JSON + 1 retry<br/>keyword fallback: works offline"]
+    CH["VerifiableCredentialRegistry (Solidity)<br/>issue / verify / revoke / getCredential<br/>hash anchor only"]
+    DB[("SQLite / PostgreSQL")]
+
+    SPA -->|HTTPS /api| API
+    API --> ORCH
+    ORCH --> EV & SG & CM & IA & PA
+    EV & SG & CM & PA -.->|strict JSON, 1 retry| LLM
+    ORCH --> EX
+    API --> DB
+    IA -->|issue / verify / revoke| CH
+    SPA -.->|read tx directly| CH
 ```
 
-## Stack
+The LLM layer is provider-agnostic (OpenAI-compatible). With no API key everything still works: a deterministic keyword-and-taxonomy fallback produces good results on the seeded certificates, so the demo never depends on the internet.
 
-| Layer | Tech |
+## Quickstart (3 commands)
+
+```bash
+./make install        # backend venv + frontend + blockchain deps
+./make chain          # start the local Hardhat node and deploy the registry
+./make check          # tests, build, seed the demo data, drive the full demo
+```
+
+Then run the app:
+
+```bash
+./make demo-check     # already proven by the gate; to serve manually:
+cd backend && .venv/Scripts/uvicorn app.main:app --port 8000     # Windows venv path: .venv\Scripts\
+cd frontend && npm run dev
+```
+
+- Web app: http://localhost:5173
+- API health: http://localhost:8000/api/health
+- OpenAPI docs: http://localhost:8000/docs
+
+On Linux/macOS use `make` instead of `./make` (same targets; the Makefile delegates to `scripts/make.py`).
+
+## Demo accounts
+
+One click each on the login page — no passwords to type on stage:
+
+| Role | Email | Sees |
+|---|---|---|
+| Student | `student@attesta.demo` | Uploads, agent trace, skill graph, career gap, receipts |
+| Issuer | `issuer@attesta.demo` | Approval queue, on-chain anchoring, CSV bulk, revoke |
+| Recruiter | `recruiter@attesta.demo` | Candidate directory, verified-only job match |
+
+Sample data is labeled "Sample data" everywhere it appears. `./make seed` (or the Reset demo data button) rebuilds: 1 student, 1 college issuer, 1 recruiter; 3 real certificate PDFs (Python verified, SQL issued-then-revoked, Excel left unverified); 1 pre-staged tampered copy; 2 projects.
+
+## Screenshots
+
+Placeholders — drop the real captures into `docs/screenshots/` with these names:
+
+| File | Shows |
 |---|---|
-| Frontend | React, Vite, Tailwind, React Router, Recharts, React Flow, QR library, Ethers.js v6 |
-| Backend | FastAPI, Pydantic, SQLAlchemy, SQLite (PostgreSQL via `DATABASE_URL`) |
-| Extraction | pdfplumber → Tesseract fallback (images/scans) |
-| Blockchain | Solidity, Hardhat (local node; Sepolia-ready config) |
+| `docs/screenshots/landing-verify.png` | Landing page with the live verify box and a verdict |
+| `docs/screenshots/verify-diff.png` | Public verify page with the highlighted hash diff on a tampered file |
+| `docs/screenshots/agent-trace.png` | Evidence detail with the agent trace panel |
+| `docs/screenshots/skill-graph.png` | React Flow skill graph, verified vs unverified borders |
+| `docs/screenshots/career-gap.png` | Career gap with missing skills and project ideas |
+| `docs/screenshots/issuer-desk.png` | Issuer queue, CSV bulk issuance, revoke with reason |
+| `docs/screenshots/receipt-qr.png` | Receipt page with QR code and permalink |
+| `docs/screenshots/recruiter-match.png` | Recruiter job match with verified-only score |
+| `docs/screenshots/audit-log.png` | Audit log |
 
-## Repository layout
+## Project structure
 
 ```
 trustpass/
-├── frontend/     React SPA (student, issuer, recruiter/QR views)
-├── backend/      FastAPI app, agents, storage adapter
-├── blockchain/   VerifiableCredentialRegistry + Hardhat tests
-├── data/         skills.json taxonomy, roles.json (target roles)
-├── docs/         architecture, trust model, privacy
-├── docker-compose.yml
-├── .env.example  copy to backend/.env — never commit real keys
-├── LICENSE (MIT) · CONTRIBUTING.md · README.md
+├── frontend/          React SPA (12 pages; React Flow, Recharts, QR, ethers v6)
+├── backend/
+│   ├── app/           FastAPI app, routers, agents, services, chain adapter
+│   └── tests/         64 API tests + 23 agent tests (run with no API key)
+├── blockchain/        VerifiableCredentialRegistry + 11 Hardhat tests + deploy script
+├── scripts/           make.py gate runner, seed_demo.py, demo_check.py
+├── data/              skills.json taxonomy (82 skills), roles.json, chain.json (generated)
+├── docs/              assumptions, architecture, trust model, demo script, slides
+├── Makefile + make    identical gate targets for CI and the Windows demo laptop
+└── .github/workflows  CI: lint + contract + backend + frontend tests
 ```
 
-## Quickstart (Stage 1 skeleton)
+## API
 
-```bash
-# backend (port 8000)
-cd backend
-python -m venv .venv && .venv\Scripts\activate     # Windows
-pip install -e .[dev]
-uvicorn app.main:app --reload
+Interactive OpenAPI docs at `/docs` on the running backend. The response envelope is always `{"error": {"code", "message", "details"}}` on failure; trust states are the five canonical strings above.
 
-# frontend (port 5173)
-cd frontend
-npm install
-npm run dev
-```
+## Trust model
 
-- API health: http://localhost:8000/api/health · OpenAPI docs: http://localhost:8000/docs
-- Web app: http://localhost:5173
-- Local chain (Stage 4): `cd blockchain && npm install && npx hardhat node`
+Every credential shows exactly one status, and only the deterministic Integrity Agent — never an LLM — may set `Issuer-verified`, `Revoked` or `Tampered`. Details and the transition diagram: [docs/trust-model.md](docs/trust-model.md). Autonomous decisions taken while building: [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md).
 
-## Build stages
+## Privacy and security
 
-- [x] **Stage 1** — Repo skeleton, trust-state vocabulary, health endpoints, boots locally
-- [ ] **Stage 2** — Data models, auth, RBAC, P0 API endpoints
-- [ ] **Stage 3** — Agent system (5 agents + orchestrator, LLM wrapper + fallback)
-- [ ] **Stage 4** — Smart contract + Hardhat tests + backend chain adapter
-- [ ] **Stage 5** — Frontend UX (skill graph, gap analysis, QR, tamper demo)
-- [ ] **Stage 6** — Seed data, demo script, offline hardening
-- [ ] **Stage 7** — Submission docs (P2 documented-only: IPFS, testnet, bulk issuance)
-
-## Privacy
-
-Public profiles expose only fields the student opted in to. Documents stay off-chain in local storage behind a storage-adapter interface (IPFS/Supabase adapters stubbed). Passwords hashed with bcrypt, JWT auth, file type/size validation, no secrets in the repo.
+Public profiles expose only fields the student opted in to. Documents stay off-chain in local storage behind a storage-adapter interface (IPFS stub). Passwords are bcrypt-hashed, auth is JWT with role-based access, uploads are type- and size-validated, and no secrets are committed (`.env.example` holds placeholders only). The demo issuer key is Hardhat's well-known account #0 — worthless outside the local node.
 
 ## License
 
