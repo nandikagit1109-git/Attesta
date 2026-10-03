@@ -99,3 +99,39 @@ assumed and why. If any assumption is wrong, it is cheap to reverse.
 19. **Git:** work continues on `main`. Commits happen per phase with the
     existing trailer style. No force-push, no deploys beyond the already
     wired auto-redeploy on push.
+
+## Phase 5 additions (seed, demo check, reset)
+
+20. **A bare SHA-256 alone cannot identify its credential.** A tampered copy
+    hashes to something no credential anchors, so `POST /api/verify/hash`
+    without a `credential_id` correctly reports `Unknown`. The Tampered
+    verdict is earned by checking a presented hash *against* a specific
+    credential, which is exactly what the receipt permalink / QR flow and
+    the evidence page do (they pass `credential_id`). The receipt page
+    therefore also accepts a file drop so the scanned-QR tamper demo shows
+    the highlighted hash diff. This is a deliberate trust-model property,
+    not a gap: nothing on the server pretends to know what an unmatched
+    file "used to be".
+21. **The chain adapter redeploys automatically.** A recorded
+    `data/chain.json` address can go stale after the local node restarts
+    (its state is gone). `get_w3_and_contract` now checks the contract has
+    code at the recorded address and re-runs `deploy.ts` when it does not.
+    Credential ids increment past old ones; nothing else is affected.
+22. **`POST /api/demo/reset` is destructive by design and dev-only.** It
+    wipes and rebuilds the canonical demo dataset (same code path as
+    `./make seed`, so the two can never drift) and returns the seeded hashes
+    as a summary. In production (`ENVIRONMENT=production`) it refuses with
+    403 so a hosted deployment can never be wiped by a stray click.
+23. **`./make demo-check` starts its own server** on a free port, resets the
+    data through the API, walks the whole demo path (upload, analyze, issue,
+    verify, tamper, fail, revoke, show revoked, recruiter match, audit) and
+    shuts down. It needs no server running beforehand; the first on-chain
+    issue may start the Hardhat node, so the check allows long timeouts.
+24. **web3 v7 strict typing: bytes32 args take raw bytes.** Passing hex
+    strings to `issueCredential` fails type checks; the adapter converts.
+25. **Seed contents:** 1 student (backend-generated wallet), 1 issuer, 1
+    recruiter; Python certificate issued and verified; SQL certificate issued
+    then revoked ("enrollment cancelled by the registrar"); Excel certificate
+    left AI-extracted (unverified); tampered copy pre-staged on the Python
+    one; 2 sample projects. All PDFs are real generated files labeled
+    "Sample data".

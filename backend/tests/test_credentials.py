@@ -7,54 +7,7 @@ status transitions the demo depends on.
 
 import pytest
 
-from tests.conftest import demo_login, pdf_bytes, register
-
-
-class FakeChain:
-    """In-memory stand-in for app.chain, monkeypatched onto the module."""
-
-    ISSUER = "0x00000000000000000000000000000000000dEa10"
-
-    def __init__(self):
-        self.records: dict[str, dict] = {}
-        self.counter = 0
-
-    def issue_onchain(self, doc_hash: str, recipient: str) -> dict:
-        self.counter += 1
-        cid = "0x" + f"{self.counter:064x}"
-        self.records[cid] = {
-            "doc_hash": "0x" + doc_hash.lower(),
-            "issuer": self.ISSUER,
-            "recipient": recipient,
-            "issued_at": 1700000000,
-            "revoked_at": 0,
-            "revoke_reason": "",
-            "revoked": False,
-            "exists": True,
-        }
-        return {
-            "chain_credential_id": cid,
-            "doc_hash": doc_hash.lower(),
-            "tx_hash": "0x" + f"{self.counter:064x}",
-            "block_number": self.counter,
-            "issuer_address": self.ISSUER,
-            "recipient_address": recipient,
-        }
-
-    def verify_onchain(self, cid: str, presented: str) -> int:
-        record = self.records[cid]
-        if record["revoked"]:
-            return 3
-        bare = presented.strip().lower().removeprefix("0x")
-        return 1 if record["doc_hash"] == "0x" + bare else 2
-
-    def get_onchain_credential(self, cid: str) -> dict:
-        return self.records[cid]
-
-    def revoke_onchain(self, cid: str, reason: str) -> dict:
-        self.records[cid]["revoked"] = True
-        self.records[cid]["revoke_reason"] = reason
-        return {"tx_hash": "0x" + f"revoke{self.counter:060x}", "block_number": 10_000 + self.counter}
+from tests.conftest import FakeChain, demo_login, pdf_bytes, register
 
 
 @pytest.fixture()

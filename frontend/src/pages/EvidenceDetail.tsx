@@ -69,7 +69,13 @@ export default function EvidenceDetail() {
     setBusy(true);
     setError("");
     try {
-      setVerifyResult(await apiPost<VerifyResult>("/api/verify/hash", { sha256: tamper.tampered_sha256 }));
+      // A bare hash maps to no credential, so pass the id (same as the receipt link).
+      setVerifyResult(
+        await apiPost<VerifyResult>("/api/verify/hash", {
+          sha256: tamper.tampered_sha256,
+          credential_id: cred?.id ?? undefined,
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

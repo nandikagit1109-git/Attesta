@@ -33,7 +33,9 @@ class ChainError(Exception):
 
 
 def _repo_root() -> Path:
-    return (Path(__file__).resolve().parent / settings.repo_root).resolve()
+    # backend/app -> backend -> repo root. settings.repo_root is relative to
+    # the backend package directory (".." by default).
+    return (Path(__file__).resolve().parents[1] / settings.repo_root).resolve()
 
 
 def _npx() -> str:
@@ -51,6 +53,9 @@ def _spawn_detached(cmd: list[str], cwd: Path, log_path: Path) -> None:
     log = open(log_path, "ab")
     kwargs: dict[str, Any] = {}
     if os.name == "nt":
+        # npx is a .cmd shim; route through cmd /c so the detached process
+        # (no console) still executes it reliably.
+        cmd = ["cmd", "/c", *cmd]
         kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         kwargs["start_new_session"] = True
@@ -153,7 +158,9 @@ def get_w3_and_contract() -> tuple[Any, Any]:
                 )
 
         address = settings.contract_address or _read_shared_config()
-        if not address:
+        # A recorded address can be stale after the node restarted; a contract
+        # with no code there means redeploy (deploy.ts rewrites the config).
+        if not address or w3.eth.get_code(Web3.to_checksum_address(address)) == b"":
             address = _deploy()
         contract = w3.eth.contract(address=Web3.to_checksum_address(address), abi=_load_abi())
         _cache[key] = (w3, contract)
@@ -204,7 +211,9 @@ def issue_onchain(doc_hash: str, recipient: str) -> dict[str, Any]:
     _, contract = get_w3_and_contract()
     credential_id = new_credential_id32()
     recipient_cs = Web3.to_checksum_address(recipient)
-    call = contract.functions.issueCredential(credential_id, Web3.to_hex(bytes.fromhex(doc_hash[2:])), recipient_cs)
+    # web3 v7 strict typing: bytes32 args take raw bytes, not hex strings.
+    doc_hash_bytes = bytes.fromhex(doc_hash.strip().lower().removeprefix("0x"))
+    call = contract.functions.issueCredential(credential_id, doc_hash_bytes, recipient_cs)
     sent = _send(call)
     account = _issuer_account()
     return {
