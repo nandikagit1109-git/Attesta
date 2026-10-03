@@ -32,6 +32,7 @@ uploads/
 blockchain/artifacts/
 blockchain/cache/
 blockchain/deployments/
+blockchain/typechain-types/
 coverage/
 *.tsbuildinfo
 

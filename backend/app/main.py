@@ -1,7 +1,9 @@
-"""TrustPass API — FastAPI entrypoint.
+"""Attesta API — FastAPI entrypoint.
 
-Stage 1: app factory, CORS, uniform errors, /api/health. Later stages mount
-auth, evidence, skills, career, credentials, profiles and audit-log routers.
+App factory: CORS, uniform error envelope, database init, and every router
+(auth, evidence, credentials, public verify, skills/projects, career,
+profiles, audit log). This module is also the Vercel serverless entrypoint
+(see api/index.py).
 """
 
 import logging
@@ -10,11 +12,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
+from .db import init_db
 from .errors import register_error_handlers
-from .routers import health
+from .routers import (
+    audit,
+    auth,
+    career,
+    credentials,
+    evidence,
+    health,
+    profiles,
+    skills,
+    verify,
+)
 from .states import TrustState
 
-logger = logging.getLogger("trustpass")
+logger = logging.getLogger("attesta")
 logging.basicConfig(level=logging.INFO)
 
 
@@ -32,7 +45,7 @@ class VercelPathRewriteMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            headers = {k: v for k, v in scope.get("headers") or []}
+            headers = dict(scope.get("headers") or [])
             original = headers.get(b"x-vercel-rewrite")
             if original:
                 from urllib.parse import urlsplit
@@ -47,14 +60,18 @@ class VercelPathRewriteMiddleware:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    init_db()  # tables must exist before the first request (SQLite / serverless)
     app = FastAPI(
         title=f"{settings.app_name} API",
         version="0.1.0",
         description=(
-            "AI-Powered Verifiable Skill & Achievement Passport.\n\n"
+            "Attesta — verified credentials for students. AI agents analyze evidence, "
+            "issuers confirm it, SHA-256 hashes are anchored on-chain, and anyone can "
+            "verify a file without trusting Attesta's servers.\n\n"
             "Trust states used across every response: "
             f"{TrustState.AI_EXTRACTED.value} · {TrustState.ISSUER_VERIFIED.value} · "
-            f"{TrustState.REVOKED_OR_TAMPERED.value}."
+            f"{TrustState.REVOKED.value} · {TrustState.TAMPERED.value} · "
+            f"{TrustState.UNKNOWN.value}."
         ),
     )
     origins = settings.cors_origin_list
@@ -68,6 +85,16 @@ def create_app() -> FastAPI:
     app.add_middleware(VercelPathRewriteMiddleware)
     register_error_handlers(app)
     app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(evidence.router)
+    app.include_router(credentials.router)
+    app.include_router(verify.router)
+    app.include_router(skills.router)
+    app.include_router(skills.projects_router)
+    app.include_router(career.router)
+    app.include_router(profiles.router)
+    app.include_router(profiles.public_router)
+    app.include_router(audit.router)
     return app
 
 

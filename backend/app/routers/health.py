@@ -1,33 +1,25 @@
-"""Health and service-status endpoints."""
-
-from datetime import datetime, timezone
+"""Health check — used by Vercel, Render and demo_check."""
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 
+from ..agents.llm import llm_available
 from ..config import get_settings
 from ..states import TrustState
 
-router = APIRouter(prefix="/api", tags=["health"])
+router = APIRouter()
 
 
-class HealthResponse(BaseModel):
-    status: str
-    service: str
-    version: str
-    time: str
-    trust_states: list[str]
-    llm_mode: str
-
-
-@router.get("/health", response_model=HealthResponse)
-def health_check() -> HealthResponse:
+@router.get("/api/health")
+def health():
     settings = get_settings()
-    return HealthResponse(
-        status="ok",
-        service=settings.app_name,
-        version="0.1.0",
-        time=datetime.now(timezone.utc).isoformat(),
-        trust_states=[s.value for s in TrustState],
-        llm_mode="llm" if settings.llm_configured else "deterministic-fallback",
-    )
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "trust_states": [
+            TrustState.AI_EXTRACTED.value,
+            TrustState.ISSUER_VERIFIED.value,
+            TrustState.REVOKED.value,
+            TrustState.TAMPERED.value,
+        ],
+        "llm_mode": "llm" if llm_available() else "deterministic-fallback",
+    }

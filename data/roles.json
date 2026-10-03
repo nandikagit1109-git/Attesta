@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "default_target_role_id": "data-analyst",
   "description": "Target roles for the Career Mentor Agent. skill_id must exist in skills.json. Weight = importance for the role (0..1). Verified skills count above unverified ones at scoring time (agent-side, not in this file).",
   "roles": [
@@ -14,20 +14,25 @@
         { "skill_id": "data-visualization", "weight": 0.85 },
         { "skill_id": "excel", "weight": 0.8 },
         { "skill_id": "statistics", "weight": 0.7 },
-        { "skill_id": "communication", "weight": 0.6 }
+        { "skill_id": "data-analysis", "weight": 0.9 },
+        { "skill_id": "communication", "weight": 0.6 },
+        { "skill_id": "power-bi", "weight": 0.5 }
       ]
     },
     {
-      "id": "frontend-developer",
-      "title": "Frontend Developer",
+      "id": "web-developer",
+      "title": "Web Developer",
       "is_default": false,
-      "description": "Builds user-facing web interfaces with modern JavaScript frameworks and cares about UX, accessibility and performance.",
+      "description": "Builds user-facing web applications with modern JavaScript frameworks and cares about UX, accessibility and performance.",
       "required_skills": [
         { "skill_id": "javascript", "weight": 0.95 },
         { "skill_id": "react", "weight": 0.9 },
+        { "skill_id": "html-css", "weight": 0.85 },
         { "skill_id": "typescript", "weight": 0.75 },
+        { "skill_id": "rest-api", "weight": 0.7 },
         { "skill_id": "git", "weight": 0.7 },
-        { "skill_id": "communication", "weight": 0.5 }
+        { "skill_id": "testing", "weight": 0.5 },
+        { "skill_id": "accessibility", "weight": 0.4 }
       ]
     },
     {
@@ -38,10 +43,28 @@
       "required_skills": [
         { "skill_id": "python", "weight": 0.95 },
         { "skill_id": "machine-learning", "weight": 0.95 },
+        { "skill_id": "deep-learning", "weight": 0.75 },
         { "skill_id": "statistics", "weight": 0.8 },
         { "skill_id": "pandas", "weight": 0.75 },
+        { "skill_id": "sql", "weight": 0.6 },
         { "skill_id": "docker", "weight": 0.5 },
-        { "skill_id": "sql", "weight": 0.6 }
+        { "skill_id": "etl", "weight": 0.45 }
+      ]
+    },
+    {
+      "id": "blockchain-developer",
+      "title": "Blockchain Developer",
+      "is_default": false,
+      "description": "Designs and ships smart contracts and decentralized applications, and reasons about security and gas costs.",
+      "required_skills": [
+        { "skill_id": "solidity", "weight": 0.95 },
+        { "skill_id": "smart-contracts", "weight": 0.9 },
+        { "skill_id": "ethereum", "weight": 0.85 },
+        { "skill_id": "web3", "weight": 0.8 },
+        { "skill_id": "hardhat", "weight": 0.75 },
+        { "skill_id": "javascript", "weight": 0.7 },
+        { "skill_id": "cryptography", "weight": 0.6 },
+        { "skill_id": "testing", "weight": 0.5 }
       ]
     }
   ]

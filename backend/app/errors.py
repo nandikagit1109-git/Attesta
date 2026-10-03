@@ -31,6 +31,8 @@ def register_error_handlers(app: FastAPI) -> None:
             403: ErrorCode.PERMISSION_DENIED,
             404: ErrorCode.NOT_FOUND,
             409: ErrorCode.CONFLICT,
+            422: ErrorCode.VALIDATION_ERROR,
+            503: ErrorCode.CHAIN_ERROR,
         }.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
         return error_response(exc.status_code, code, str(exc.detail), getattr(exc, "details", None))
 
@@ -43,5 +45,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def unhandled_exc_handler(request: Request, exc: Exception) -> JSONResponse:
         # Fail loud, leak nothing: log server-side, generic message client-side.
-        request.app.state.last_internal_error = repr(exc)
+        import logging
+
+        logging.getLogger("attesta").exception("unhandled error: %r", exc)
         return error_response(500, ErrorCode.INTERNAL_ERROR, "Internal server error")
