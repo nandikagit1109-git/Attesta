@@ -5,21 +5,22 @@ Thanks for helping build Attesta for DecentraHack 2.0 (and beyond).
 ## Ground rules (non-negotiable)
 
 1. **Trust vocabulary is frozen.** Exactly five states everywhere — UI, API, docs:
-   `AI-extracted (unverified)` · `Issuer-verified` · `Revoked` · `Tampered` · and
-   `Unknown` (public verify page only, when a hash is not anchored).
+   `Unverified` · `Verified` · `Revoked` · `Tampered` · and
+   `Not found` (public verify page only, when a hash is anchored nowhere).
    Canonical source: `backend/app/states.py`.
-2. **AI output is a suggestion, never proof.** The Evidence Verification Agent never claims a document is authentic; only an on-chain record plus a matching hash plus no revocation is "Issuer-verified".
-3. **Only the Integrity Agent sets proof states.** Deterministic code, no LLM. No other component may move evidence to verified / revoked / tampered.
+2. **AI output is a suggestion, never proof.** The agents never claim a document is authentic; the student must approve the extracted skills, and only an on-chain record plus a matching hash plus no revocation is "Verified".
+3. **Only the Integrity module sets proof states.** Deterministic code, no LLM. No other component may move evidence to verified / revoked / tampered.
 4. **On-chain = hashes only.** No PDFs, images, passwords, ID numbers, phone numbers, emails or names on the chain. Ever.
-5. **No secrets in the repo.** Real keys stay in `.env` (gitignored). `.env.example` holds placeholders only.
-6. **Offline-first demo path.** Everything must work with no internet and no LLM API key (deterministic fallback). The demo path is verified by `./make check` before every phase ends.
+5. **Recruiters are guests.** No recruiter login, no directory, no profile enumeration. One share token per student, minted server-side; guests get 404 on anything else.
+6. **No secrets in the repo.** Real keys stay in `.env` (gitignored). `.env.example` holds placeholders only.
+7. **Offline-first demo path.** Everything must work with no internet and no LLM API key (deterministic fallback). The demo path is verified by `./make demo-check` before every phase ends.
 
 ## Getting started
 
 ```bash
 ./make install        # backend venv (3.11) + frontend + blockchain deps
 ./make chain          # local Hardhat node + deploy the registry
-./make check          # full gate: tests, build, seed, demo check
+./make check-all      # full gate: tests, build, seed, demo check
 ```
 
 Individual gates: `./make test-contracts`, `./make test-backend`, `./make test-agents`, `./make build`, `./make lint`.

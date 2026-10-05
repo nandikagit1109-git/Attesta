@@ -1,30 +1,30 @@
 import type { TrustState } from "../lib/types";
 
 /**
- * Every credential shows exactly one status. States differ by border style
- * and label (never color alone): solid double border for verified, dashed
- * for AI-extracted, double rule for revoked, rust solid for tampered,
- * dotted for unknown.
+ * Every credential shows exactly one status. The text label is always present;
+ * color is used only for status and border style keeps the states distinct
+ * without it: solid double border for Verified, dashed for Unverified, double
+ * rule + strike for Revoked, rust for Tampered, dotted for Not found.
  */
 const STYLE: Record<TrustState, string> = {
-  "Issuer-verified": "border-[2.5px] border-double border-ink font-semibold",
-  "AI-extracted (unverified)": "border border-dashed border-ink",
-  Revoked: "border-[3px] border-double border-ink line-through",
+  Verified: "border-[2.5px] border-double border-ink text-emerald-800 font-semibold",
+  Unverified: "border border-dashed border-ink text-amber-700",
+  Revoked: "border-[3px] border-double border-ink text-red-800 line-through",
   Tampered: "border border-solid border-rust text-rust font-semibold",
-  Unknown: "border border-dotted border-ink",
+  "Not found": "border border-dotted border-ink",
 };
 
 const LABEL: Record<TrustState, string> = {
-  "Issuer-verified": "Issuer-verified",
-  "AI-extracted (unverified)": "AI-extracted (unverified)",
+  Verified: "Verified",
+  Unverified: "Unverified",
   Revoked: "Revoked",
   Tampered: "Tampered",
-  Unknown: "Unknown",
+  "Not found": "Not found",
 };
 
 export default function TrustBadge({ state, className = "" }: { state: TrustState; className?: string }) {
   return (
-    <span className={`inline-block border px-2 py-0.5 text-xs ${STYLE[state] ?? STYLE.Unknown} ${className}`}>
+    <span className={`inline-block bg-paper border px-2 py-0.5 text-xs ${STYLE[state] ?? STYLE["Not found"]} ${className}`}>
       {LABEL[state] ?? state}
     </span>
   );

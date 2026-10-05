@@ -85,15 +85,15 @@ def verify_evidence(
     output = result.output
 
     state = output.get("trust_state")
-    if state == TrustState.ISSUER_VERIFIED.value:
-        evidence.trust_state = TrustState.ISSUER_VERIFIED.value
+    if state == TrustState.VERIFIED.value:
+        evidence.trust_state = TrustState.VERIFIED.value
     elif state == TrustState.REVOKED.value:
         evidence.trust_state = TrustState.REVOKED.value
     elif state == TrustState.TAMPERED.value:
         evidence.trust_state = TrustState.TAMPERED.value
-    elif state == TrustState.UNKNOWN.value and "chain-record-missing" in result.flags:
+    elif state == TrustState.NOT_FOUND.value and "chain-record-missing" in result.flags:
         # On-chain record vanished (chain reset): drop back to unverified.
-        evidence.trust_state = TrustState.AI_EXTRACTED.value
+        evidence.trust_state = TrustState.UNVERIFIED.value
 
     _audit(
         db,
@@ -117,7 +117,7 @@ def collect_skill_sets(db: Session, user: User) -> tuple[set[str], set[str]]:
         is_verified = (
             ev.credential is not None
             and not ev.credential.revoked
-            and ev.trust_state == TrustState.ISSUER_VERIFIED.value
+            and ev.trust_state == TrustState.VERIFIED.value
         )
         (verified if is_verified else unverified).update(ids)
     for project in db.query(Project).filter(Project.student_id == user.id).all():
@@ -142,8 +142,15 @@ def career_gap(db: Session, user: User, role_id: str | None, actor: User | None)
     return result.output
 
 
-def job_match(db: Session, jd_text: str, role_hint: str | None, actor: User | None) -> dict:
-    """Score a pasted job description using issuer-verified skills only."""
+def job_match(
+    db: Session,
+    jd_text: str,
+    role_hint: str | None,
+    candidate: User,
+    actor: User | None = None,
+) -> dict:
+    """Score a pasted job description using issuer-verified skills only.
+    `candidate` owns the skills; `actor` (when logged in) is audited."""
     from .career import get_role, score_skills  # reuse the exact scoring (avoids cycle)
     from .evidence import load_taxonomy
 
@@ -167,9 +174,7 @@ def job_match(db: Session, jd_text: str, role_hint: str | None, actor: User | No
                 required.append({"skill_id": skill["id"], "weight": weight})
 
     # Alias matches count a bit lower than direct name matches.
-    verified, unverified = collect_skill_sets(db, actor) if actor and actor.role == "student" else (set(), set())
-    if actor is None:
-        verified, unverified = set(), set()
+    verified, unverified = collect_skill_sets(db, candidate)
 
     pseudo_role = {
         "id": role_hint or "job-description",
@@ -246,7 +251,7 @@ def build_graph(db: Session, user: User) -> dict:
         verified = (
             ev.credential is not None
             and not ev.credential.revoked
-            and ev.trust_state == TrustState.ISSUER_VERIFIED.value
+            and ev.trust_state == TrustState.VERIFIED.value
         )
         nodes.append(
             {
@@ -284,7 +289,7 @@ def build_graph(db: Session, user: User) -> dict:
                 "id": project.id,
                 "kind": "project",
                 "label": project.title,
-                "trust_state": TrustState.AI_EXTRACTED.value,
+                "trust_state": TrustState.UNVERIFIED.value,
                 "verified": False,
             }
         )

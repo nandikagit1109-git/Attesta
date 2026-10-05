@@ -34,9 +34,10 @@ def main() -> int:
     print("Demo data seeded (Sample data throughout):")
     print(f"  student  {summary['student']['email']}  wallet {summary['student']['wallet']}")
     print(f"  issuer   {summary['issuer']['email']}")
+    print(f"  share link for recruiters (guest, no login): /s/{summary['share_token']}")
     print(f"  verified credential for hash {summary['verified']['sha256'][:16]}...")
     print(f"  revoked  credential for hash {summary['revoked']['sha256'][:16]}...")
-    print(f"  unverified (AI-extracted) hash {summary['unverified']['sha256'][:16]}...")
+    print(f"  unverified (Unverified) hash {summary['unverified']['sha256'][:16]}...")
     print(f"  tampered copy hash {summary['tampered']['sha256'][:16]}...")
     return 0
 

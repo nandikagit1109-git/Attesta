@@ -16,8 +16,8 @@ def health():
         "status": "ok",
         "app": settings.app_name,
         "trust_states": [
-            TrustState.AI_EXTRACTED.value,
-            TrustState.ISSUER_VERIFIED.value,
+            TrustState.UNVERIFIED.value,
+            TrustState.VERIFIED.value,
             TrustState.REVOKED.value,
             TrustState.TAMPERED.value,
         ],

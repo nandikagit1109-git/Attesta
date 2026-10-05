@@ -32,6 +32,10 @@ contract VerifiableCredentialRegistry {
     mapping(bytes32 => Credential) private credentials;
     bytes32[] private credentialIds;
 
+    /// Reverse index: document hash -> credential id, so anyone can look a
+    /// file up by its SHA-256 alone, without trusting Attesta's database.
+    mapping(bytes32 => bytes32) public hashToCredentialId;
+
     event CredentialIssued(
         bytes32 indexed credentialId,
         bytes32 indexed docHash,
@@ -47,16 +51,19 @@ contract VerifiableCredentialRegistry {
     );
 
     error DuplicateCredentialId(bytes32 credentialId);
+    error DuplicateDocumentHash(bytes32 docHash);
+    error UnknownDocumentHash(bytes32 docHash);
     error NotOriginalIssuer(address caller, address issuer);
     error CredentialNotFound(bytes32 credentialId);
     error AlreadyRevoked(bytes32 credentialId);
     error InvalidRecipient();
 
-    /// Anchor a credential. Duplicate ids are rejected so a credential can
-    /// only ever be issued once.
+    /// Anchor a credential. Duplicate ids AND duplicate document hashes are
+    /// rejected: one document, one credential, forever.
     function issueCredential(bytes32 credentialId, bytes32 docHash, address recipient) external {
         if (recipient == address(0)) revert InvalidRecipient();
         if (credentials[credentialId].exists) revert DuplicateCredentialId(credentialId);
+        if (hashToCredentialId[docHash] != 0) revert DuplicateDocumentHash(docHash);
         uint64 ts = uint64(block.timestamp);
         credentials[credentialId] = Credential({
             docHash: docHash,
@@ -69,6 +76,7 @@ contract VerifiableCredentialRegistry {
             exists: true
         });
         credentialIds.push(credentialId);
+        hashToCredentialId[docHash] = credentialId;
         emit CredentialIssued(credentialId, docHash, msg.sender, recipient, ts);
     }
 
@@ -100,6 +108,14 @@ contract VerifiableCredentialRegistry {
     /// Full record for a credential id (reverts if never issued).
     function getCredential(bytes32 credentialId) external view returns (Credential memory) {
         if (!credentials[credentialId].exists) revert CredentialNotFound(credentialId);
+        return credentials[credentialId];
+    }
+
+    /// Full record for a document hash via the reverse index (reverts if no
+    /// credential was ever anchored for this exact file).
+    function getCredentialByHash(bytes32 docHash) external view returns (Credential memory) {
+        bytes32 credentialId = hashToCredentialId[docHash];
+        if (credentialId == 0) revert UnknownDocumentHash(docHash);
         return credentials[credentialId];
     }
 

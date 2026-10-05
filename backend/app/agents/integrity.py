@@ -1,5 +1,5 @@
 """Integrity Agent. Deterministic code, no LLM, the ONLY component allowed
-to emit Issuer-verified / Revoked / Tampered.
+to emit Verified / Revoked / Tampered.
 
 It hashes the presented document, compares with the on-chain record and
 checks revocation. On a chain outage it reports an error flag and leaves the
@@ -26,7 +26,10 @@ class IntegrityAgent(BaseAgent):
         if credential is None:
             return AgentResult(
                 input_summary=input_summary,
-                output={"trust_state": TrustState.UNKNOWN.value, "reason": "no on-chain credential for this document"},
+                output={
+                    "trust_state": TrustState.NOT_FOUND.value,
+                    "reason": "no on-chain credential for this document",
+                },
                 confidence=1.0,
                 flags=["no-credential"],
                 used_fallback=False,
@@ -65,12 +68,12 @@ class IntegrityAgent(BaseAgent):
         elif status == chain.STATUS_TAMPERED:
             state, reason = TrustState.TAMPERED, "Document hash does not match the on-chain record"
         elif status == chain.STATUS_VALID:
-            state, reason = TrustState.ISSUER_VERIFIED, "On-chain record exists, hash matches, not revoked"
+            state, reason = TrustState.VERIFIED, "On-chain record exists, hash matches, not revoked"
         else:
             # The DB has a credential the chain no longer knows (for example
-            # after a chain reset). "Issuer-verified" requires an on-chain
-            # record, so the honest state is Unknown here.
-            state, reason = TrustState.UNKNOWN, "Credential not found on-chain"
+            # after a chain reset). "Verified" requires an on-chain
+            # record, so the honest state is Not found here.
+            state, reason = TrustState.NOT_FOUND, "Credential not found on-chain"
             base["flags"] = ["chain-record-missing"]
             return AgentResult(
                 input_summary=input_summary,

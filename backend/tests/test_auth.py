@@ -30,9 +30,9 @@ def test_register_rejects_short_password_and_bad_role(client):
 
     bad_role = client.post(
         "/api/auth/register",
-        json={"email": "admin@test.dev", "password": "password-123", "full_name": "A", "role": "admin"},
+        json={"email": "rec@test.dev", "password": "password-123", "full_name": "R", "role": "recruiter"},
     )
-    assert bad_role.status_code == 422
+    assert bad_role.status_code == 422  # recruiters are guests: no accounts, ever
 
 
 def test_register_rejects_duplicate_email(client):
@@ -59,7 +59,7 @@ def test_demo_login_all_roles_creates_users_on_fresh_db(client):
     for role, expected_email in (
         ("student", "student@attesta.demo"),
         ("issuer", "issuer@attesta.demo"),
-        ("recruiter", "recruiter@attesta.demo"),
+        ("admin", "admin@attesta.demo"),
     ):
         _headers, user = demo_login(client, role)
         assert user["email"] == expected_email
@@ -70,7 +70,8 @@ def test_demo_login_all_roles_creates_users_on_fresh_db(client):
 
 
 def test_demo_login_unknown_role_404(client):
-    assert client.post("/api/auth/demo/admin").status_code == 404
+    # Recruiters are guests; there is deliberately no recruiter login.
+    assert client.post("/api/auth/demo/recruiter").status_code == 404
 
 
 def test_missing_token_is_401(client):
@@ -90,8 +91,8 @@ def test_role_guards_block_wrong_roles(client):
     assert issuer_queue.status_code == 403
     assert issuer_queue.json()["error"]["code"] == "PERMISSION_DENIED"
 
-    recruiter_headers, _ = demo_login(client, "recruiter")
-    graph = client.get("/api/skills/graph", headers=recruiter_headers)
+    admin_headers, _ = demo_login(client, "admin")
+    graph = client.get("/api/skills/graph", headers=admin_headers)
     assert graph.status_code == 403
 
 

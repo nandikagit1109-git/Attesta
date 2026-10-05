@@ -1,34 +1,43 @@
-"""Tests for the public endpoints the frontend depends on: the student
-directory (recruiter search source, privacy-honoring) and chain coordinates
+"""Tests for the public doors the frontend depends on: the guest share link
+(one token, one profile, no login, no enumeration) and chain coordinates
 (direct on-chain reads from the browser)."""
 
 from tests.conftest import demo_login
 
 
-def test_student_directory_honors_privacy_toggles(client):
-    _, student = demo_login(client, "student")
-    resp = client.get("/api/profiles")
-    assert resp.status_code == 200, resp.text
-    entries = resp.json()
-    assert len(entries) == 1
-    entry = entries[0]
-    assert entry["user_id"] == student["id"]
-    assert entry["full_name"] == "Ananya Sharma"
-    # Default toggles: headline public, email private.
-    assert entry["headline"]
-    assert "email" not in entry
-    # Skills included by default (empty until evidence exists).
-    assert entry["skills"] == {"verified": [], "unverified": []}
+def test_share_link_works_for_guests_and_cannot_enumerate(client):
+    student_headers, student = demo_login(client, "student")
 
-    # The student can hide everything with one PATCH.
-    hidden = client.patch(
-        "/api/profile/me",
-        headers={"Authorization": f"Bearer {_token(client, 'student')}"},
-        json={"public_fields": {"full_name": False, "headline": False, "skills": False}},
-    )
-    assert hidden.status_code == 200, hidden.text
-    after = client.get("/api/profiles").json()[0]
-    assert set(after.keys()) == {"user_id", "wallet_address"}
+    # The student publishes the link.
+    resp = client.post("/api/profile/share-link", headers=student_headers)
+    assert resp.status_code == 200, resp.text
+    token = resp.json()["share_token"]
+    assert len(token) >= 32  # long random token, not a user id
+    assert resp.json()["share_path"] == f"/s/{token}"
+
+    # Idempotent: publishing again returns the same token.
+    again = client.post("/api/profile/share-link", headers=student_headers)
+    assert again.json()["share_token"] == token
+
+    # A guest (no Authorization header at all) opens the shared profile.
+    shared = client.get(f"/api/share/{token}")
+    assert shared.status_code == 200, shared.text
+    body = shared.json()
+    assert body["student"]["full_name"] == "Ananya Sharma"
+    assert body["share_token"] == token
+    assert isinstance(body["credentials"], list)
+    assert isinstance(body["skills"], list)
+
+    # Issuers have no share link: the token is a student feature.
+    issuer_headers, _ = demo_login(client, "issuer")
+    assert client.post("/api/profile/share-link", headers=issuer_headers).status_code == 403
+
+    # There is no directory, no search, no listing: enumeration is impossible.
+    assert client.get("/api/profiles").status_code == 404
+    assert client.get(f"/api/profiles/{student['id']}").status_code == 404
+
+    # An unknown token is a plain 404 with no hints.
+    assert client.get("/api/share/not-a-real-token").status_code == 404
 
 
 def test_chain_info_reports_public_coordinates(client):
@@ -40,7 +49,3 @@ def test_chain_info_reports_public_coordinates(client):
     # deployed is False on a fresh test DB with no chain.json contract address
     assert isinstance(body["deployed"], bool)
     assert body["contract_address"] == "" or body["contract_address"].startswith("0x")
-
-
-def _token(client, role) -> str:
-    return demo_login(client, role)[0]["Authorization"].split(" ", 1)[1]

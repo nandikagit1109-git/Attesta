@@ -1,5 +1,5 @@
-"""Evidence API: upload + agent analysis, listing, permissions, tamper demo,
-verification without a credential, and upload validation."""
+"""Evidence API: upload + agent analysis, listing, permissions, admin tamper
+control boundaries, verification without a credential, and upload validation."""
 
 import hashlib
 
@@ -21,8 +21,8 @@ def test_upload_runs_agents_and_stays_unverified(client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
 
-    # Trust model: fresh evidence is AI-extracted (unverified), never proof.
-    assert body["trust_state"] == "AI-extracted (unverified)"
+    # Trust model: fresh evidence is Unverified, never proof.
+    assert body["trust_state"] == "Unverified"
 
     ex = body["extracted"]
     assert ex["title"] == "Certificate of Completion"  # extraction reads the document itself
@@ -52,7 +52,7 @@ def test_student_sees_only_own_evidence_others_cannot_read(client):
     student_headers, _ = demo_login(client, "student")
     other_headers, _ = register(client, "other-student@test.dev")
     issuer_headers, _ = demo_login(client, "issuer")
-    recruiter_headers, _ = demo_login(client, "recruiter")
+    admin_headers, _ = demo_login(client, "admin")
 
     created = _upload(client, student_headers).json()
     eid = created["id"]
@@ -62,34 +62,22 @@ def test_student_sees_only_own_evidence_others_cannot_read(client):
 
     assert client.get(f"/api/evidence/{eid}", headers=other_headers).status_code == 403
     assert client.get(f"/api/evidence/{eid}", headers=issuer_headers).status_code == 200
-    assert client.get(f"/api/evidence/{eid}", headers=recruiter_headers).status_code == 200
+    assert client.get(f"/api/evidence/{eid}", headers=admin_headers).status_code == 200
 
 
-def test_tamper_creates_one_byte_flipped_copy(client):
+def test_tamper_control_belongs_to_admin_only(client):
+    """The revised spec moves the one-click tamper to the Demo/Admin role."""
     headers, _ = demo_login(client, "student")
     evidence = _upload(client, headers).json()
 
-    tamper = client.post(f"/api/evidence/{evidence['id']}/tamper", headers=headers)
-    assert tamper.status_code == 200
-    body = tamper.json()
-    assert body["tampered_sha256"] != body["original_sha256"]
+    # The old student-owned tamper route is gone entirely.
+    assert client.post(f"/api/evidence/{evidence['id']}/tamper", headers=headers).status_code == 404
+    assert client.get(f"/api/evidence/{evidence['id']}/tamper-file", headers=headers).status_code == 404
 
-    # The downloaded tampered copy really hashes to the reported value.
-    download = client.get(f"/api/evidence/{evidence['id']}/tamper-file", headers=headers)
-    assert download.status_code == 200
-    assert hashlib.sha256(download.content).hexdigest() == body["tampered_sha256"]
-
-    # Idempotent: a second tamper call reuses the same copy.
-    again = client.post(f"/api/evidence/{evidence['id']}/tamper", headers=headers)
-    assert again.json()["tampered_sha256"] == body["tampered_sha256"]
-
-
-def test_tamper_blocked_for_other_students(client):
-    owner_headers, _ = demo_login(client, "student")
-    other_headers, _ = register(client, "no-tamper@test.dev")
-    evidence = _upload(client, owner_headers).json()
-    resp = client.post(f"/api/evidence/{evidence['id']}/tamper", headers=other_headers)
-    assert resp.status_code == 403
+    # The admin route exists but targets credentials; this evidence has none.
+    admin_headers, _ = demo_login(client, "admin")
+    resp = client.post(f"/api/demo/tamper/{evidence['id']}", headers=admin_headers)
+    assert resp.status_code == 404
 
 
 def test_verify_without_credential_stays_unverified(client):
@@ -100,10 +88,10 @@ def test_verify_without_credential_stays_unverified(client):
     resp = client.post(f"/api/evidence/{evidence['id']}/verify", headers=headers)
     assert resp.status_code == 200
     verification = resp.json()["verification"]
-    assert verification["trust_state"] == "Unknown"
+    assert verification["trust_state"] == "Not found"
     assert "no-credential" in verification.get("flags", []) or verification.get("reason")
     # The evidence keeps its honest unverified state.
-    assert resp.json()["evidence"]["trust_state"] == "AI-extracted (unverified)"
+    assert resp.json()["evidence"]["trust_state"] == "Unverified"
 
 
 def test_upload_rejects_bad_type_and_empty_file(client):
@@ -127,7 +115,7 @@ def test_upload_rejects_bad_type_and_empty_file(client):
 
 
 def test_public_file_verify_unknown_hash(client):
-    """Feature 1: /api/verify/file needs no login; an unknown hash is Unknown."""
+    """Feature 1: /api/verify/file needs no login; an unknown hash is Not found."""
     digest = hashlib.sha256(b"a file nobody ever anchored").hexdigest()
     resp = client.post(
         "/api/verify/file",
@@ -135,6 +123,6 @@ def test_public_file_verify_unknown_hash(client):
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["state"] == "Unknown"
+    assert body["state"] == "Not found"
     assert body["presented_hash"] == digest
     assert body["onchain_hash"] is None

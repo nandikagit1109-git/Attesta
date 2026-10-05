@@ -31,7 +31,30 @@ def get_db():
 
 
 def init_db() -> None:
-    """Create all tables. Called at app startup."""
+    """Create all tables, then add any columns that are new since an older
+    schema was created (SQLite ALTER TABLE ADD COLUMN). Keeps an existing demo
+    database working across releases without a migration tool."""
     from . import models  # noqa: F401  (register models on the Base metadata)
 
     Base.metadata.create_all(bind=engine)
+    if not _settings.database_url.startswith("sqlite"):
+        return
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in inspector.get_table_names():
+            mapper = Base.metadata.tables.get(table)
+            if mapper is None:
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for column in mapper.columns:
+                if column.name in existing:
+                    continue
+                col_type = column.type.compile(engine.dialect)
+                default = ""
+                if column.server_default is not None:
+                    default = f" DEFAULT {column.server_default.arg}"
+                conn.execute(
+                    text(f'ALTER TABLE "{table}" ADD COLUMN "{column.name}" {col_type}{default}')
+                )

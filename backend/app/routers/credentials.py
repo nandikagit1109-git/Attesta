@@ -37,10 +37,14 @@ def _require_wallet(user: User) -> str:
 
 @router.get("/queue")
 def issuer_queue(user: User = Depends(require_roles("issuer")), db: Session = Depends(get_db)):
-    """Evidence awaiting issuer approval, plus already-issued records."""
+    """Evidence the student approved and sent for confirmation, plus
+    already-issued records."""
     pending = (
         db.query(Evidence)
-        .filter(Evidence.credential == None)  # noqa: E711  (SQLAlchemy is-null)
+        .filter(
+            Evidence.credential == None,  # noqa: E711  (SQLAlchemy is-null)
+            Evidence.skills_approved.is_(True),
+        )
         .order_by(Evidence.created_at.desc())
         .all()
     )
@@ -68,6 +72,11 @@ def issue_credential(
         raise HTTPException(status_code=404, detail="Evidence not found")
     if evidence.credential is not None:
         raise HTTPException(status_code=409, detail="This evidence already has a credential")
+    if not evidence.skills_approved:
+        raise HTTPException(
+            status_code=409,
+            detail="The student has not approved the extracted skills and requested confirmation yet",
+        )
 
     student = evidence.student
     recipient = _require_wallet(student)
@@ -82,6 +91,7 @@ def issue_credential(
         chain_credential_id=result["chain_credential_id"],
         evidence_id=evidence.id,
         issuer_id=user.id,
+        issuer_address=result["issuer_address"],
         recipient_address=recipient,
         doc_hash=evidence.sha256,
         tx_hash=result["tx_hash"],
@@ -164,8 +174,8 @@ def revoke_credential(
 
 @router.get("")
 def list_credentials(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Issuers see what they issued; students see what they hold; recruiters
-    see the public registry view."""
+    """Issuers see what they issued; students see what they hold; admins
+    see everything (demo control)."""
     query = db.query(Credential)
     if user.role == "issuer":
         query = query.filter(Credential.issuer_id == user.id)
@@ -274,7 +284,7 @@ def _issue_for_row(db: Session, issuer: User, email: str, title: str, file_name:
         file_size=os.path.getsize(pdf_path),
         sha256=sha256,
         extracted={},
-        trust_state=TrustState.AI_EXTRACTED.value,
+        trust_state=TrustState.UNVERIFIED.value,
     )
     db.add(evidence)
     db.commit()
@@ -287,6 +297,7 @@ def _issue_for_row(db: Session, issuer: User, email: str, title: str, file_name:
         chain_credential_id=result["chain_credential_id"],
         evidence_id=evidence.id,
         issuer_id=issuer.id,
+        issuer_address=result["issuer_address"],
         recipient_address=recipient,
         doc_hash=evidence.sha256,
         tx_hash=result["tx_hash"],

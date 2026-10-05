@@ -98,13 +98,14 @@ export default function IssuerDashboard() {
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
         <section className="lg:col-span-5">
           <h2 className="text-xs uppercase tracking-wide border-b border-ink pb-1">
-            Awaiting approval
+            Awaiting confirmation (student approved the skills)
           </h2>
           {!queue ? (
             <p className="mt-3 text-sm">Loading</p>
           ) : queue.pending.length === 0 ? (
             <p className="mt-3 text-sm border border-ink bg-surface px-4 py-3">
-              Nothing in the queue. New student uploads land here with the agents' extraction.
+              Nothing in the queue. Evidence lands here once the student approves the
+              extracted skills and requests confirmation.
             </p>
           ) : (
             <ul className="mt-3 border border-ink divide-y divide-ink">
@@ -121,7 +122,7 @@ export default function IssuerDashboard() {
                   </div>
                   <p className="mt-1 text-xs">
                     Read as: {e.extracted.title || e.file_name} · issuer {e.extracted.issuer || "unknown"} ·{" "}
-                    {(e.extracted.skills ?? []).length} skill(s)
+                    {(e.extracted.skills ?? []).length} skill(s) approved by the student
                   </p>
                   <button
                     onClick={() => issue(e.id)}
@@ -184,7 +185,7 @@ export default function IssuerDashboard() {
               {queue.issued.map((c) => (
                 <li key={c.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <TrustBadge state={c.revoked ? "Revoked" : "Issuer-verified"} />
+                    <TrustBadge state={c.revoked ? "Revoked" : "Verified"} />
                     <Link
                       to={`/receipt/${c.id}?hash=${c.doc_hash}`}
                       className="text-sm underline underline-offset-4"

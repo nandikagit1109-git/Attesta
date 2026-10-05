@@ -11,9 +11,9 @@ import EvidenceDetail from "./pages/EvidenceDetail";
 import SkillGraphPage from "./pages/SkillGraph";
 import CareerGapPage from "./pages/CareerGap";
 import ProfilePage from "./pages/ProfilePage";
-import PublicProfilePage from "./pages/PublicProfile";
 import IssuerDashboard from "./pages/IssuerDashboard";
-import RecruiterPage from "./pages/RecruiterPage";
+import AdminPage from "./pages/AdminPage";
+import ShareView from "./pages/ShareView";
 import AuditPage from "./pages/AuditPage";
 import type { Role } from "./lib/types";
 
@@ -35,7 +35,8 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/verify" element={<VerifyAnyFile />} />
             <Route path="/receipt/:credentialId" element={<Receipt />} />
-            <Route path="/profiles/:userId" element={<PublicProfilePage />} />
+            {/* Guest recruiter view: one long random token, no login. */}
+            <Route path="/s/:shareToken" element={<ShareView />} />
             <Route
               path="/dashboard"
               element={
@@ -47,7 +48,7 @@ export default function App() {
             <Route
               path="/evidence/:evidenceId"
               element={
-                <RequireRole roles={["student", "issuer", "recruiter"]}>
+                <RequireRole roles={["student", "issuer", "admin"]}>
                   <EvidenceDetail />
                 </RequireRole>
               }
@@ -85,21 +86,16 @@ export default function App() {
               }
             />
             <Route
-              path="/recruiter"
+              path="/admin"
               element={
-                <RequireRole roles={["recruiter"]}>
-                  <RecruiterPage />
+                <RequireRole roles={["admin"]}>
+                  <AdminPage />
                 </RequireRole>
               }
             />
-            <Route
-              path="/audit"
-              element={
-                <RequireRole roles={["student", "issuer", "recruiter"]}>
-                  <AuditPage />
-                </RequireRole>
-              }
-            />
+            {/* The audit log is public and read-only: hashes, addresses, tx
+                hashes, timestamps. Nothing personal, nothing mutable. */}
+            <Route path="/audit" element={<AuditPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

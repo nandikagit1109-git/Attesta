@@ -158,13 +158,41 @@ def get_w3_and_contract() -> tuple[Any, Any]:
                 )
 
         address = settings.contract_address or _read_shared_config()
-        # A recorded address can be stale after the node restarted; a contract
-        # with no code there means redeploy (deploy.ts rewrites the config).
-        if not address or w3.eth.get_code(Web3.to_checksum_address(address)) == b"":
+        # A recorded address can be stale after the node restarted, or after a
+        # contract upgrade: a contract with no code there — or old bytecode
+        # that predates the reverse index — means redeploy (deploy.ts rewrites
+        # the config).
+        needs_deploy = not address
+        if address:
+            checksummed = Web3.to_checksum_address(address)
+            needs_deploy = w3.eth.get_code(checksummed) == b""
+            if not needs_deploy:
+                # Probe the newest feature (the docHash->credentialId reverse
+                # index). A missing selector reverts, which tells us the
+                # deployed bytecode is from an older contract version.
+                probe = w3.eth.contract(address=checksummed, abi=_load_abi())
+                try:
+                    probe.functions.hashToCredentialId(b"\x00" * 32).call()
+                except Exception:
+                    needs_deploy = True
+        if needs_deploy:
             address = _deploy()
         contract = w3.eth.contract(address=Web3.to_checksum_address(address), abi=_load_abi())
         _cache[key] = (w3, contract)
         return w3, contract
+
+
+def is_reachable() -> bool:
+    """Cheap, side-effect-free RPC check. Unlike get_w3_and_contract this
+    never starts a node or deploys anything — callers use it to decide
+    whether to fall back to their own index."""
+    try:
+        from web3 import Web3
+
+        w3 = Web3(Web3.HTTPProvider(settings.chain_rpc_url, request_kwargs={"timeout": 3}))
+        return bool(w3.is_connected())
+    except Exception:
+        return False
 
 
 def _issuer_account():
@@ -223,6 +251,37 @@ def issue_onchain(doc_hash: str, recipient: str) -> dict[str, Any]:
         "block_number": sent["block_number"],
         "issuer_address": account.address,
         "recipient_address": recipient_cs,
+    }
+
+
+def lookup_by_hash(doc_hash: str) -> dict[str, Any] | None:
+    """Reverse-index lookup: the on-chain record for one document hash, or
+    None when that exact file was never anchored. Raises ChainError when the
+    chain itself is unreachable so callers can fall back to their own index."""
+    from web3 import Web3
+    from web3.exceptions import ContractLogicError
+
+    _, contract = get_w3_and_contract()
+    bare = doc_hash.strip().lower().removeprefix("0x")
+    hash_bytes = bytes.fromhex(bare)
+    try:
+        credential_id = contract.functions.hashToCredentialId(hash_bytes).call()
+        if credential_id == b"\x00" * 32:
+            return None  # nothing anchored for this file
+        record = contract.functions.getCredential(credential_id).call()
+    except ContractLogicError:
+        return None  # UnknownDocumentHash / defensive: treat as not anchored
+    (doc_hash, issuer, recipient, issued_at, revoked_at, revoke_reason, revoked, exists) = record
+    return {
+        "credential_id": Web3.to_hex(credential_id),
+        "doc_hash": Web3.to_hex(doc_hash).lower(),
+        "issuer": issuer,
+        "recipient": recipient,
+        "issued_at": int(issued_at),
+        "revoked_at": int(revoked_at),
+        "revoke_reason": revoke_reason,
+        "revoked": bool(revoked),
+        "exists": bool(exists),
     }
 
 

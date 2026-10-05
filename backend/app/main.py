@@ -24,6 +24,7 @@ from .routers import (
     evidence,
     health,
     profiles,
+    share,
     skills,
     verify,
 )
@@ -71,9 +72,10 @@ def create_app() -> FastAPI:
             "issuers confirm it, SHA-256 hashes are anchored on-chain, and anyone can "
             "verify a file without trusting Attesta's servers.\n\n"
             "Trust states used across every response: "
-            f"{TrustState.AI_EXTRACTED.value} · {TrustState.ISSUER_VERIFIED.value} · "
+            f"{TrustState.UNVERIFIED.value} · {TrustState.VERIFIED.value} · "
             f"{TrustState.REVOKED.value} · {TrustState.TAMPERED.value} · "
-            f"{TrustState.UNKNOWN.value}."
+            f"{TrustState.NOT_FOUND.value} (public verify only). Recruiters are guests: "
+            "one share token per student, no login, no profile enumeration."
         ),
     )
     origins = settings.cors_origin_list
@@ -95,7 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(skills.projects_router)
     app.include_router(career.router)
     app.include_router(profiles.router)
-    app.include_router(profiles.public_router)
+    app.include_router(share.router)
     app.include_router(chaininfo.router)
     app.include_router(demo.router)
     app.include_router(audit.router)

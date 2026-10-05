@@ -87,6 +87,45 @@ describe("VerifiableCredentialRegistry", () => {
     ).to.be.revertedWithCustomError(registry, "DuplicateCredentialId");
   });
 
+  it("rejects a second credential for the same document hash", async () => {
+    const { registry, issuer, recipient } = await deployRegistry();
+    await issueFrom(registry, issuer, recipient);
+    const secondId = ethers.id("credential-2");
+    await expect(
+      registry.connect(issuer).issueCredential(secondId, DOC_HASH, recipient.address),
+    ).to.be.revertedWithCustomError(registry, "DuplicateDocumentHash");
+  });
+
+  it("resolves a credential id from the document hash reverse index", async () => {
+    const { registry, issuer, recipient } = await deployRegistry();
+    await issueFrom(registry, issuer, recipient);
+    expect(await registry.hashToCredentialId(DOC_HASH)).to.equal(CREDENTIAL_ID);
+
+    const byHash = await registry.getCredentialByHash(DOC_HASH);
+    expect(byHash.docHash).to.equal(DOC_HASH);
+    expect(byHash.issuer).to.equal(issuer.address);
+    expect(byHash.recipient).to.equal(recipient.address);
+    expect(byHash.exists).to.equal(true);
+  });
+
+  it("reverts the hash lookup for a document that was never anchored", async () => {
+    const { registry } = await deployRegistry();
+    const ghost = ethers.sha256(ethers.toUtf8Bytes("ghost.pdf"));
+    await expect(registry.getCredentialByHash(ghost)).to.be.revertedWithCustomError(
+      registry,
+      "UnknownDocumentHash",
+    );
+  });
+
+  it("the reverse index still reports Revoked after revocation", async () => {
+    const { registry, issuer, recipient } = await deployRegistry();
+    await issueFrom(registry, issuer, recipient);
+    await registry.connect(issuer).revokeCredential(CREDENTIAL_ID, "withdrawn");
+    const byHash = await registry.getCredentialByHash(DOC_HASH);
+    expect(byHash.revoked).to.equal(true);
+    expect(byHash.revokeReason).to.equal("withdrawn");
+  });
+
   it("allows only the original issuer to revoke", async () => {
     const { registry, issuer, other, recipient } = await deployRegistry();
     await issueFrom(registry, issuer, recipient);

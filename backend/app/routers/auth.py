@@ -18,6 +18,7 @@ from ..security import (
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Demo accounts (feature 5): one click each, no passwords typed on stage.
+# Recruiters are guests — they never log in; they open a share link.
 DEMO_USERS = {
     "student": {
         "email": "student@attesta.demo",
@@ -31,11 +32,11 @@ DEMO_USERS = {
         "org_name": "Springfield College",
         "headline": "Issues and verifies student credentials. Sample data issuer.",
     },
-    "recruiter": {
-        "email": "recruiter@attesta.demo",
-        "full_name": "Priya Recruiter",
-        "org_name": "TalentFirst",
-        "headline": "Hires analysts and developers. Sample data recruiter.",
+    "admin": {
+        "email": "admin@attesta.demo",
+        "full_name": "Demo Admin",
+        "org_name": "Attesta",
+        "headline": "Owns the demo dataset, reset and the one-click tamper.",
     },
 }
 DEMO_PASSWORD = "attesta-demo"
@@ -105,7 +106,10 @@ def demo_login(role: str, db: Session = Depends(get_db)):
     """One-click login for the demo (feature 5). Creates the demo user on
     first use so the demo works on a fresh database."""
     if role not in DEMO_USERS:
-        raise HTTPException(status_code=404, detail="Demo role must be student, issuer or recruiter")
+        raise HTTPException(
+            status_code=404,
+            detail="Demo role must be student, issuer or admin; recruiters are guests",
+        )
 
     spec = DEMO_USERS[role]
     user = db.query(User).filter(User.email == spec["email"]).first()

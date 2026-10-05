@@ -24,11 +24,11 @@ class ProfileAgent(BaseAgent):
         unverified = facts.get("unverified_skills", [])
         if unverified:
             parts.append(
-                f"Also reports {', '.join(unverified[:6])} (AI-extracted, not yet issuer-verified)."
+                f"Also reports {', '.join(unverified[:6])} (Unverified, not yet issuer-confirmed)."
             )
         creds = facts.get("credentials", [])
         if creds:
-            parts.append(f"Issuer-verified credentials on-chain: {len(creds)}.")
+            parts.append(f"Verified credentials on-chain: {len(creds)}.")
         projects = facts.get("projects", [])
         if projects:
             titles = ", ".join(p["title"] for p in projects[:3])

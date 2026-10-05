@@ -28,6 +28,11 @@ class User(Base):
     public_fields: Mapped[dict] = mapped_column(JSON, default=dict)
     wallet_address: Mapped[str] = mapped_column(String(42), default="")
     wallet_private_key: Mapped[str] = mapped_column(String(66), default="")
+    # Long random token behind the guest share link (/s/<token>). Recruiters
+    # never log in; the token is the only way in and cannot be enumerated.
+    # NULL until the student publishes a link (NULLs do not collide in the
+    # unique index, empty strings would).
+    share_token: Mapped[str | None] = mapped_column(String(64), default=None, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     evidences: Mapped[list["Evidence"]] = relationship(back_populates="student")
@@ -51,9 +56,12 @@ class Evidence(Base):
     sha256: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     # Agent extraction: {title, issuer, student_name, date, credential_id, skills:[{id,name,confidence}], text_chars}
     extracted: Mapped[dict] = mapped_column(JSON, default=dict)
-    # One of TrustState values. Starts AI_EXTRACTED; only the Integrity Agent
-    # ever moves it to ISSUER_VERIFIED / REVOKED / TAMPERED.
+    # One of TrustState values. Starts UNVERIFIED; only the Integrity module
+    # ever moves it to VERIFIED / REVOKED / TAMPERED.
     trust_state: Mapped[str] = mapped_column(String(40), index=True, default="")
+    # Student reviewed the extracted skills and requested issuer confirmation.
+    # The issuer queue only shows evidence with this flag set.
+    skills_approved: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     student: Mapped[User] = relationship(back_populates="evidences")
@@ -71,6 +79,9 @@ class Credential(Base):
     chain_credential_id: Mapped[str] = mapped_column(String(66), unique=True, index=True, nullable=False)
     evidence_id: Mapped[str] = mapped_column(ForeignKey("evidences.id"), unique=True, nullable=False)
     issuer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    # On-chain signer address (the demo issuer key), mirrored for the public
+    # audit log and share view so they work even when the node is unreachable.
+    issuer_address: Mapped[str] = mapped_column(String(42), default="")
     recipient_address: Mapped[str] = mapped_column(String(42), nullable=False)
     doc_hash: Mapped[str] = mapped_column(String(66), nullable=False, index=True)
     tx_hash: Mapped[str] = mapped_column(String(66), default="")

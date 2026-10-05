@@ -4,9 +4,9 @@ import { useAuth } from "../lib/auth";
 import type { Role } from "../lib/types";
 
 const DEMO: { role: Role; title: string; blurb: string }[] = [
-  { role: "student", title: "Student", blurb: "Upload evidence, build the skill graph, share receipts." },
-  { role: "issuer", title: "Issuer", blurb: "Approve evidence, anchor hashes on-chain, revoke." },
-  { role: "recruiter", title: "Recruiter", blurb: "Search candidates, match a job description." },
+  { role: "student", title: "Student", blurb: "Upload evidence, approve skills, share your link." },
+  { role: "issuer", title: "Issuer", blurb: "Confirm evidence, anchor hashes on-chain, revoke." },
+  { role: "admin", title: "Admin", blurb: "Owns the demo dataset, reset and one-click tamper." },
 ];
 
 export default function Login() {
@@ -18,7 +18,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   function homeFor(role: Role) {
-    return role === "student" ? "/dashboard" : role === "issuer" ? "/issuer" : "/recruiter";
+    return role === "student" ? "/dashboard" : role === "issuer" ? "/issuer" : "/admin";
   }
 
   async function doDemo(role: Role) {
@@ -53,6 +53,10 @@ export default function Login() {
       <section className="lg:col-span-5">
         <h1 className="font-display text-3xl font-semibold">Log in</h1>
         <p className="mt-2 text-sm">One click for the demo, or your own account below.</p>
+        <p className="mt-2 text-xs border border-ink bg-surface px-3 py-2">
+          Recruiters never log in. Students share a link and QR code; open it and
+          you are the recruiter.
+        </p>
         <div className="mt-6 border border-ink divide-y divide-ink">
           {DEMO.map((d) => (
             <div key={d.role} className="px-4 py-3 flex items-center justify-between gap-4">

@@ -9,6 +9,7 @@ import { useAuth } from "../lib/auth";
 export default function Landing() {
   const { user } = useAuth();
   const [hash, setHash] = useState("");
+  const [credentialId, setCredentialId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<VerifyResult | null>(null);
@@ -22,12 +23,21 @@ export default function Landing() {
     try {
       const sha256 = await sha256File(file);
       setHash(sha256);
-      setResult(await apiPost<VerifyResult>("/api/verify/hash", { sha256 }));
+      setResult(
+        await apiPost<VerifyResult>("/api/verify/hash", {
+          sha256,
+          credential_id: credentialId.trim() || undefined,
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
+  }
+
+  function deskFor(role: string) {
+    return role === "student" ? "/dashboard" : role === "issuer" ? "/issuer" : "/admin";
   }
 
   return (
@@ -44,13 +54,13 @@ export default function Landing() {
         <div className="mt-8 border-t border-ink">
           <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-ink">
             <div className="py-4 sm:pr-6">
-              <p className="font-display text-lg">1. AI-extracted (unverified)</p>
+              <p className="font-display text-lg">1. Unverified</p>
               <p className="text-sm mt-1">
                 A suggestion from the agents. Never proof. Clearly labeled everywhere.
               </p>
             </div>
             <div className="py-4 sm:pl-6">
-              <p className="font-display text-lg">2. Issuer-verified</p>
+              <p className="font-display text-lg">2. Verified</p>
               <p className="text-sm mt-1">
                 On-chain record exists, the file hash matches and the credential is not revoked.
               </p>
@@ -66,17 +76,15 @@ export default function Landing() {
             <div className="py-4 sm:pl-6">
               <p className="font-display text-lg">4. Why a blockchain</p>
               <p className="text-sm mt-1">
-                Several independent issuers write records; no tokens, no speculation, just hashes.
+                The contract maps every document hash to its credential, so a file can be looked
+                up directly. No tokens, no speculation, just hashes.
               </p>
             </div>
           </div>
         </div>
         <div className="mt-8 flex flex-wrap gap-4 items-center">
           {user ? (
-            <Link
-              to={user.role === "student" ? "/dashboard" : user.role === "issuer" ? "/issuer" : "/recruiter"}
-              className="bg-rust text-paper px-5 py-3 text-sm font-medium"
-            >
+            <Link to={deskFor(user.role)} className="bg-rust text-paper px-5 py-3 text-sm font-medium">
               Open your desk
             </Link>
           ) : (
@@ -107,6 +115,21 @@ export default function Landing() {
               onChange={(e) => onFile(e.target.files?.[0])}
               className="w-full border-0 p-0 text-sm file:mr-3 file:border file:border-ink file:bg-paper file:px-3 file:py-1 file:text-ink file:text-xs"
             />
+            <label htmlFor="landing-credential-id" className="block mt-3 text-xs uppercase tracking-wide mb-1">
+              Credential ID (optional)
+            </label>
+            <input
+              id="landing-credential-id"
+              type="text"
+              value={credentialId}
+              onChange={(e) => setCredentialId(e.target.value)}
+              placeholder="paste an ID from a receipt to test a copy"
+              className="w-full font-mono text-xs"
+            />
+            <p className="mt-1 text-xs">
+              Without an ID the hash is looked up on the contract: Verified, Revoked or Not found.
+              With an ID, a differing hash proves the file Tampered.
+            </p>
             {busy && <p className="mt-3 text-sm">Computing SHA-256 and checking the chain. Loading</p>}
             {error && <p className="mt-3 text-sm text-rust">{error}</p>}
             {hash && !busy && (
@@ -122,8 +145,8 @@ export default function Landing() {
           )}
         </div>
         <p className="mt-3 text-xs">
-          Try it: upload any PDF here, then modify one byte of a copy and verify that copy to see
-          the Tampered state.
+          Try it: upload any PDF here, then modify one byte of a copy and verify that copy with the
+          receipt's credential ID to see the Tampered state.
         </p>
       </section>
     </div>

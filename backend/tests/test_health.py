@@ -16,11 +16,11 @@ def test_health_declares_the_documented_trust_states(client):
     resp = client.get("/api/health")
     states = resp.json()["trust_states"]
     assert states == [
-        "AI-extracted (unverified)",
-        "Issuer-verified",
+        "Unverified",
+        "Verified",
         "Revoked",
         "Tampered",
-    ]
+    ]  # "Not found" is verify-page-only and deliberately absent here
 
 
 def test_error_format_is_standard_envelope(client):
@@ -46,12 +46,16 @@ def test_openapi_documents_the_api(client):
         "/api/health",
         "/api/auth/demo/{role}",
         "/api/evidence",
+        "/api/evidence/{evidence_id}/approve-skills",
         "/api/credentials/issue",
         "/api/verify/hash",
         "/api/verify/file",
         "/api/skills/graph",
         "/api/career/job-match",
-        "/api/profiles/{user_id}",
+        "/api/share/{token}",
+        "/api/share/{token}/job-match",
+        "/api/profile/share-link",
+        "/api/demo/tamper/{credential_id}",
         "/api/audit",
     ):
         assert required in paths, f"missing route {required}"

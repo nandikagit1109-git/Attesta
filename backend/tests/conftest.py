@@ -98,6 +98,15 @@ class FakeChain:
         bare = presented.strip().lower().removeprefix("0x")
         return 1 if record["doc_hash"] == "0x" + bare else 2
 
+    def lookup_by_hash(self, doc_hash: str) -> dict | None:
+        """Reverse-index stand-in: None when this exact file was never
+        anchored (the real contract behaves the same)."""
+        want = "0x" + doc_hash.strip().lower().removeprefix("0x")
+        for cid, record in self.records.items():
+            if record["doc_hash"] == want:
+                return {**record, "credential_id": cid}
+        return None
+
     def get_onchain_credential(self, cid: str) -> dict:
         return self.records[cid]
 
@@ -116,6 +125,10 @@ def fake_chain(monkeypatch):
     monkeypatch.setattr(chain_module, "verify_onchain", fake.verify_onchain)
     monkeypatch.setattr(chain_module, "get_onchain_credential", fake.get_onchain_credential)
     monkeypatch.setattr(chain_module, "revoke_onchain", fake.revoke_onchain)
+    monkeypatch.setattr(chain_module, "lookup_by_hash", fake.lookup_by_hash)
+    # Hermetic tests: never talk to a real node, even when a local Hardhat
+    # from a previous gate run is still listening.
+    monkeypatch.setattr(chain_module, "is_reachable", lambda: False)
     return fake
 
 

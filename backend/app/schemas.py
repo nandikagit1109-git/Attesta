@@ -17,7 +17,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=1, max_length=255)
-    role: str = Field(pattern="^(student|issuer|recruiter)$")
+    # Recruiters are guests: they never register or log in.
+    role: str = Field(pattern="^(student|issuer|admin)$")
     org_name: str = Field(default="", max_length=255)
 
 
@@ -53,8 +54,6 @@ class VerifyHashRequest(BaseModel):
 class JobMatchRequest(BaseModel):
     job_description: str = Field(min_length=10, max_length=8000)
     role_hint: str | None = Field(default=None, max_length=120)
-    # Recruiters match against a candidate; students match themselves.
-    candidate_id: str | None = None
 
 
 # ---------- Serializers ----------
@@ -105,6 +104,7 @@ def credential_public(c: Credential) -> dict[str, Any]:
         "issuer_id": c.issuer_id,
         "issuer_name": c.issuer.full_name if c.issuer else "",
         "issuer_org": c.issuer.org_name if c.issuer else "",
+        "issuer_address": c.issuer_address,
         "recipient_address": c.recipient_address,
         "doc_hash": c.doc_hash,
         "tx_hash": c.tx_hash,
@@ -116,20 +116,34 @@ def credential_public(c: Credential) -> dict[str, Any]:
     }
 
 
+def _tampered_sha256(path: str) -> str | None:
+    """Hash of the demo tampered copy, when the file still exists."""
+    import os
+
+    from .services.files import compute_file_sha256
+
+    try:
+        if os.path.exists(path):
+            return compute_file_sha256(path)
+    except OSError:
+        pass
+    return None
+
+
 def evidence_public(
     e: Evidence,
     include_runs: bool = False,
     db: Any = None,
 ) -> dict[str, Any]:
     """Serialize evidence. Skill verified-ness derives from its credential:
-    a skill is verified only when the evidence has an Issuer-verified,
+    a skill is verified only when the evidence has a Verified,
     non-revoked credential."""
     from .states import TrustState
 
     student = e.student
     cred = e.credential
     verified_skills: set[str] = set()
-    if cred and not cred.revoked and e.trust_state == TrustState.ISSUER_VERIFIED.value:
+    if cred and not cred.revoked and e.trust_state == TrustState.VERIFIED.value:
         for s in (e.extracted or {}).get("skills", []):
             if s.get("id"):
                 verified_skills.add(s["id"])
@@ -142,6 +156,9 @@ def evidence_public(
         "file_size": e.file_size,
         "sha256": e.sha256,
         "trust_state": e.trust_state,
+        "tampered_sha256": (
+            _tampered_sha256(e.tampered_copy_path) if e.tampered_copy_path else None
+        ),
         "extracted": e.extracted or {},
         "skills": [
             {**s, "verified": s.get("id") in verified_skills}
@@ -149,6 +166,7 @@ def evidence_public(
         ],
         "student": {"id": student.id, "full_name": student.full_name} if student else None,
         "credential": credential_public(cred) if cred else None,
+        "skills_approved": bool(e.skills_approved),
         "has_tampered_copy": bool(e.tampered_copy_path),
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
@@ -174,6 +192,8 @@ def project_public(p: Project) -> dict[str, Any]:
 
 
 def audit_public(row: Any) -> dict[str, Any]:
+    """Kept for potential internal use; the public audit feed in
+    routers/audit.py builds its own restricted rows (no PII)."""
     return {
         "id": row.id,
         "actor_id": row.actor_id,

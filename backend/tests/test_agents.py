@@ -46,7 +46,7 @@ def make_user(db, role="student", email=None, org=""):
     return user
 
 
-def make_evidence(db, student, sha256=None, extracted=None, trust_state="AI-extracted (unverified)"):
+def make_evidence(db, student, sha256=None, extracted=None, trust_state="Unverified"):
     from app.models import Evidence
 
     ev = Evidence(
@@ -347,7 +347,7 @@ _RECORD = {
 @pytest.mark.parametrize(
     "status,expected_state",
     [
-        (1, "Issuer-verified"),
+        (1, "Verified"),
         (2, "Tampered"),
         (3, "Revoked"),
     ],
@@ -400,7 +400,7 @@ def test_integrity_no_credential_is_unknown_not_verified(db):
     student = make_user(db)
     ev = make_evidence(db, student)
     _run, result = IntegrityAgent().execute(AgentContext(db=db, evidence=ev))
-    assert result.output["trust_state"] == "Unknown"
+    assert result.output["trust_state"] == "Not found"
     assert "no-credential" in result.flags
 
 
@@ -441,7 +441,7 @@ def test_profile_agent_summarizes_only_facts(db):
     summary = result.output["summary"]
     assert "Ananya Sharma" in summary
     assert "python, sql" in summary
-    assert "Issuer-verified credentials on-chain: 1" in summary
+    assert "Verified credentials on-chain: 1" in summary
     assert "Sales dashboard" in summary
 
 
@@ -467,7 +467,7 @@ def test_orchestrator_analyze_on_real_pdf(db, tmp_path):
         file_size=1,
         sha256=sha,
         extracted={},
-        trust_state="AI-extracted (unverified)",
+        trust_state="Unverified",
     )
     db.add(ev)
     db.commit()
@@ -487,13 +487,13 @@ def test_collect_skill_sets_verified_wins_and_projects_are_unverified(db):
     issuer = make_user(db, role="issuer", org="College")
 
     verified_ev = make_evidence(
-        db, student, trust_state="Issuer-verified",
+        db, student, trust_state="Verified",
         extracted={"skills": [{"id": "python", "name": "Python", "confidence": 0.9}]},
     )
     _make_cred(db, verified_ev, issuer)
 
     unverified_ev = make_evidence(
-        db, student, trust_state="AI-extracted (unverified)",
+        db, student, trust_state="Unverified",
         extracted={"skills": [{"id": "sql", "name": "SQL", "confidence": 0.9}]},
     )
     assert unverified_ev is not None
@@ -516,7 +516,7 @@ def test_build_graph_nodes_edges_and_verified_flags(db):
     student = make_user(db)
     issuer = make_user(db, role="issuer", org="College")
     verified_ev = make_evidence(
-        db, student, trust_state="Issuer-verified",
+        db, student, trust_state="Verified",
         extracted={"skills": [{"id": "python", "name": "Python", "confidence": 0.9}]},
     )
     _make_cred(db, verified_ev, issuer)
@@ -540,12 +540,12 @@ def test_job_match_scores_verified_skills_only(db):
     student = make_user(db)
     issuer = make_user(db, role="issuer", org="College")
     verified_ev = make_evidence(
-        db, student, trust_state="Issuer-verified",
+        db, student, trust_state="Verified",
         extracted={"skills": [{"id": "python", "name": "Python", "confidence": 0.9}]},
     )
     _make_cred(db, verified_ev, issuer)
     make_evidence(
-        db, student, trust_state="AI-extracted (unverified)",
+        db, student, trust_state="Unverified",
         extracted={"skills": [{"id": "sql", "name": "SQL", "confidence": 0.9}]},
     )
 

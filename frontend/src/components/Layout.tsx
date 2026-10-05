@@ -9,7 +9,7 @@ const LINKS: { to: string; label: string; roles: Role[] | null }[] = [
   { to: "/career", label: "Career gap", roles: ["student"] },
   { to: "/profile", label: "Profile", roles: ["student"] },
   { to: "/issuer", label: "Issuer desk", roles: ["issuer"] },
-  { to: "/recruiter", label: "Recruiter", roles: ["recruiter"] },
+  { to: "/admin", label: "Demo admin", roles: ["admin"] },
   { to: "/audit", label: "Audit log", roles: null },
   { to: "/verify", label: "Verify a file", roles: null },
 ];

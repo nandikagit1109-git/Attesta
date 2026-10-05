@@ -3,14 +3,14 @@
  * Field names mirror the backend serializers in backend/app/schemas.py.
  */
 
-export type Role = "student" | "issuer" | "recruiter";
+export type Role = "student" | "issuer" | "admin";
 
 export type TrustState =
-  | "AI-extracted (unverified)"
-  | "Issuer-verified"
+  | "Unverified"
+  | "Verified"
   | "Revoked"
   | "Tampered"
-  | "Unknown";
+  | "Not found";
 
 export interface User {
   id: string;
@@ -57,6 +57,7 @@ export interface Credential {
   issuer_id: string;
   issuer_name: string;
   issuer_org: string;
+  issuer_address: string;
   recipient_address: string;
   doc_hash: string;
   tx_hash: string;
@@ -75,6 +76,7 @@ export interface Evidence {
   file_size: number;
   sha256: string;
   trust_state: TrustState;
+  tampered_sha256?: string | null;
   extracted: {
     title?: string;
     issuer?: string;
@@ -89,6 +91,7 @@ export interface Evidence {
   skills: ExtractedSkill[];
   student: { id: string; full_name: string } | null;
   credential: Credential | null;
+  skills_approved: boolean;
   has_tampered_copy: boolean;
   created_at: string | null;
   agent_runs?: AgentRun[];
@@ -175,38 +178,45 @@ export interface JobMatch {
   run_id: string;
 }
 
-export interface DirectoryEntry {
-  user_id: string;
-  wallet_address: string;
-  full_name?: string;
-  headline?: string;
-  email?: string;
-  skills?: { verified: string[]; unverified: string[] };
-}
-
-export interface PublicProfile {
-  user_id: string;
-  role: Role;
-  org_name: string;
-  wallet_address: string;
+export interface ShareProfile {
+  share_token: string;
+  student: {
+    full_name: string;
+    headline: string;
+    wallet_address: string;
+  };
   summary: string;
-  full_name?: string;
-  headline?: string;
-  email?: string;
-  skills?: { verified: string[]; unverified: string[] };
-  projects?: { id: string; title: string; description: string; skills: string[] }[];
-  credentials?: { id: string; title: string; revoked: boolean; trust_state: TrustState }[];
+  skills: { id: string; name: string; confidence: number | null; verified: boolean }[];
+  credentials: {
+    id: string;
+    title: string;
+    status: TrustState;
+    doc_hash: string;
+    tx_hash: string;
+    block_number: number;
+    issued_at: string | null;
+    revoked: boolean;
+    revoked_at: string | null;
+    revoke_reason: string;
+    issuer_org: string;
+    issuer_address: string;
+    receipt_path: string;
+    agent_runs: AgentRun[];
+  }[];
+  projects: { id: string; title: string; description: string; skills: string[] }[];
 }
 
-export interface AuditEntry {
-  id: string;
-  actor_id: string;
-  actor_role: string;
-  action: string;
-  object_type: string;
-  object_id: string;
-  detail: Record<string, unknown>;
-  created_at: string | null;
+export interface AuditEvent {
+  key: string;
+  event: "issued" | "revoked" | "tamper-detected";
+  source: "chain" | "off-chain";
+  credential_id: string | null;
+  doc_hash: string | null;
+  issuer_address: string;
+  tx_hash: string | null;
+  block_number: number | null;
+  at: string | null;
+  reason: string;
 }
 
 export interface ChainInfo {

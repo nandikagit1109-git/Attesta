@@ -7,6 +7,7 @@ import VerifyResultPanel from "../components/VerifyResult";
 /** Feature 1: public "Verify any file" page, no login required. */
 export default function VerifyAnyFile() {
   const [hash, setHash] = useState("");
+  const [credentialId, setCredentialId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<VerifyResult | null>(null);
@@ -21,7 +22,12 @@ export default function VerifyAnyFile() {
     try {
       const sha256 = await sha256File(file);
       setHash(sha256);
-      setResult(await apiPost<VerifyResult>("/api/verify/hash", { sha256 }));
+      setResult(
+        await apiPost<VerifyResult>("/api/verify/hash", {
+          sha256,
+          credential_id: credentialId.trim() || undefined,
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -38,8 +44,9 @@ export default function VerifyAnyFile() {
           looks the hash up on the registry contract. Nothing is uploaded, no account is needed.
         </p>
         <p className="mt-3 text-sm leading-relaxed">
-          The verdict is exactly one of: Issuer-verified, Tampered, Revoked, or Unknown, with the
-          issuer address, block number and transaction hash.
+          The verdict is exactly one of: Verified, Revoked, or Not found — with the issuer
+          address, block number and transaction hash. Add a credential ID from a receipt and a
+          differing hash is proven Tampered instead.
         </p>
         <div
           className={`mt-6 border border-dashed border-ink p-6 ${dragOver ? "bg-surface" : ""}`}
@@ -61,6 +68,17 @@ export default function VerifyAnyFile() {
             accept=".pdf,.png,.jpg,.jpeg"
             onChange={(e) => onFile(e.target.files?.[0])}
             className="mt-3 w-full border-0 p-0 text-sm file:mr-3 file:border file:border-ink file:bg-paper file:px-3 file:py-1 file:text-ink file:text-xs"
+          />
+          <label htmlFor="verify-credential-id" className="block mt-3 text-xs uppercase tracking-wide mb-1">
+            Credential ID (optional — enables Tampered)
+          </label>
+          <input
+            id="verify-credential-id"
+            type="text"
+            value={credentialId}
+            onChange={(e) => setCredentialId(e.target.value)}
+            placeholder="paste an ID from a receipt"
+            className="w-full font-mono text-xs"
           />
         </div>
         {busy && <p className="mt-4 text-sm">Computing SHA-256 and checking the chain. Loading</p>}

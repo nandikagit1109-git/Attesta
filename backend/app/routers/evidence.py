@@ -1,4 +1,4 @@
-"""Evidence endpoints: upload, list, detail, download, tamper demo, verify."""
+"""Evidence endpoints: upload, list, detail, download, skill approval."""
 
 import uuid
 
@@ -11,7 +11,7 @@ from ..db import get_db
 from ..models import AuditLog, Evidence, User
 from ..schemas import evidence_public
 from ..security import get_current_user, require_roles
-from ..services.files import compute_file_sha256, make_tampered_copy, save_upload
+from ..services.files import save_upload
 from ..states import TrustState
 
 router = APIRouter(prefix="/api/evidence", tags=["evidence"])
@@ -25,7 +25,7 @@ def _get_evidence_or_404(db: Session, evidence_id: str) -> Evidence:
 
 
 def _can_view(user: User, evidence: Evidence) -> bool:
-    return user.role in ("issuer", "recruiter") or evidence.student_id == user.id
+    return user.role in ("issuer", "admin") or evidence.student_id == user.id
 
 
 @router.post("")
@@ -47,7 +47,7 @@ def upload_evidence(
         file_size=meta["file_size"],
         sha256=meta["sha256"],
         extracted={},
-        trust_state=TrustState.AI_EXTRACTED.value,
+        trust_state=TrustState.UNVERIFIED.value,
     )
     db.add(evidence)
     db.commit()
@@ -103,40 +103,39 @@ def download_evidence(
     return FileResponse(evidence.stored_path, filename=evidence.file_name)
 
 
-@router.post("/{evidence_id}/tamper")
-def tamper_evidence(
+@router.post("/{evidence_id}/approve-skills")
+def approve_skills(
     evidence_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("student")),
     db: Session = Depends(get_db),
 ):
-    """Demo feature 5: flip one byte in a stored copy so verification can be
-    shown failing with a real hash mismatch."""
-    evidence = _get_evidence_or_404(db, evidence_id)
-    if evidence.student_id != user.id and user.role != "recruiter":
-        raise HTTPException(status_code=403, detail="Only the owner can tamper for the demo")
-    if not evidence.tampered_copy_path:
-        evidence.tampered_copy_path = make_tampered_copy(evidence.stored_path)
-        db.commit()
-    return {
-        "tampered_sha256": compute_file_sha256(evidence.tampered_copy_path),
-        "original_sha256": evidence.sha256,
-        "note": "Byte-flipped copy created. Upload it or verify it against the credential to see Tampered.",
-    }
+    """Student reviews the extracted skills and requests issuer confirmation.
 
-
-@router.get("/{evidence_id}/tamper-file")
-def download_tampered(
-    evidence_id: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
+    Until this is called, the evidence never reaches the issuer queue and the
+    issuer cannot anchor it. The extraction itself stays Unverified — this
+    request is the student's word, never proof.
+    """
     evidence = _get_evidence_or_404(db, evidence_id)
-    if evidence.student_id != user.id and user.role != "recruiter":
+    if evidence.student_id != user.id:
         raise HTTPException(status_code=403, detail="Not your evidence")
-    if not evidence.tampered_copy_path:
-        evidence.tampered_copy_path = make_tampered_copy(evidence.stored_path)
+    if evidence.credential is not None:
+        raise HTTPException(status_code=409, detail="This evidence already has a credential")
+    if not evidence.skills_approved:
+        evidence.skills_approved = True
+        db.add(
+            AuditLog(
+                id=str(uuid.uuid4()),
+                actor_id=user.id,
+                actor_role=user.role,
+                action="REQUEST_CONFIRM",
+                object_type="evidence",
+                object_id=evidence.id,
+                detail={"skills": [s.get("id") for s in (evidence.extracted or {}).get("skills", []) if s.get("id")]},
+            )
+        )
         db.commit()
-    return FileResponse(evidence.tampered_copy_path, filename=f"tampered-{evidence.file_name}")
+        db.refresh(evidence)
+    return evidence_public(evidence, include_runs=True, db=db)
 
 
 @router.post("/{evidence_id}/verify")

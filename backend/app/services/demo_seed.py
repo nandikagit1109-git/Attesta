@@ -1,14 +1,15 @@
 """Canonical demo dataset, shared by scripts/seed_demo.py and the
-/api/demo/reset endpoint (the UI "Reset demo data" button).
+/api/demo/reset endpoint (the Admin "Reset demo data" button).
 
-Contents per the product spec: 1 student, 1 college issuer, 1 recruiter;
-3 certificate PDFs (Python, SQL, Excel) generated as real files; 2 issued
-on-chain credentials (the SQL one then revoked with a reason); 1 pre-staged
-tampered copy of the Python certificate; 2 student projects. Everything is
-labeled Sample data.
+Contents per the revised spec: 1 student (with a guest share token), 1
+college issuer, 1 demo admin; 3 certificate PDFs (Python, SQL, Excel)
+generated as real files; 2 issued on-chain credentials (the SQL one then
+revoked with a reason); 1 pre-staged tampered copy of the Python
+certificate; 2 student projects. Everything is labeled Sample data.
 """
 
 import os
+import secrets
 import uuid
 
 from sqlalchemy.orm import Session
@@ -77,7 +78,7 @@ def _certificate(db: Session, student: User, actor: User, title: str) -> Evidenc
         file_size=os.path.getsize(path),
         sha256=sha256,
         extracted={},
-        trust_state=TrustState.AI_EXTRACTED.value,
+        trust_state=TrustState.UNVERIFIED.value,
     )
     db.add(evidence)
     db.commit()
@@ -114,7 +115,11 @@ def reset_demo_data(db: Session) -> dict:
     spec = _demo_spec()
     student = _make_user(db, "student", spec["student"])
     issuer = _make_user(db, "issuer", spec["issuer"])
-    _recruiter = _make_user(db, "recruiter", spec["recruiter"])
+    _admin = _make_user(db, "admin", spec["admin"])
+
+    # The student's guest share link: recruiters open /s/<token>, no login.
+    student.share_token = secrets.token_urlsafe(24)
+    db.commit()
 
     # 3 certificates: Python (verified), SQL (issued then revoked), Excel (stays unverified).
     py_ev = _certificate(db, student, issuer, "Python Programming")
@@ -140,9 +145,9 @@ def reset_demo_data(db: Session) -> dict:
     py_ev.tampered_copy_path = tampered_path
     tampered_sha256 = compute_file_sha256(tampered_path)
     db.commit()
-    # A hash alone cannot identify its credential, so the summary carries the
-    # credential id the verify call must pass to see Tampered (as the receipt
-    # permalink and QR code do).
+    # A bare tampered hash proves nothing (it is anchored nowhere), so the
+    # summary carries the credential id the verify call must pass to see
+    # Tampered (as the receipt permalink and QR code do).
 
     # 2 projects (feature: student adds a project; graph + career gap use it).
     db.add(
@@ -180,6 +185,7 @@ def reset_demo_data(db: Session) -> dict:
     return {
         "student": {"id": student.id, "email": student.email, "wallet": student.wallet_address},
         "issuer": {"id": issuer.id, "email": issuer.email},
+        "share_token": student.share_token,
         "verified": {"evidence_id": py_ev.id, "sha256": py_ev.sha256, "credential_id": py_cred.id},
         "revoked": {"evidence_id": sql_ev.id, "sha256": sql_ev.sha256, "credential_id": sql_cred.id},
         "unverified": {"evidence_id": excel_ev.id, "sha256": excel_ev.sha256},

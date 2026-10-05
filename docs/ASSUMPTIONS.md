@@ -13,11 +13,12 @@ assumed and why. If any assumption is wrong, it is cheap to reverse.
    directory name and the Vercel plumbing (backend/api/index.py, legacy
    `routes` vercel.json, VercelPathRewriteMiddleware). The unrelated
    `trustpass-api` Vercel project in the team is never touched.
-2. **Trust-state wording updated to the Attesta spec.** Four statuses now:
-   `AI-extracted (unverified)`, `Issuer-verified`, `Revoked` (with reason and
-   timestamp), `Tampered` (with reason), plus `Unknown` which only appears on
-   the public verify page when a hash is not on-chain. The old combined
-   "Revoked or tampered" is retired. Backend `states.py` and frontend
+2. **Trust-state wording matches the revised Attesta spec.** Five statuses:
+   `Unverified`, `Verified`, `Revoked` (with reason and timestamp), `Tampered`
+   (with a side-by-side hash comparison), and `Not found`, which only appears
+   on the public verify page when a hash is anchored nowhere. The old
+   "AI-extracted (unverified)" / "Issuer-verified" / "Unknown" wording is
+   retired. Backend `states.py` and frontend
    `trustStates.ts` stay mirrors of each other.
 3. **`make` is not installed on the demo laptop (Windows, Git Bash only).**
    The `Makefile` is canonical for CI (GitHub Actions runs real `make`) and
@@ -56,7 +57,7 @@ assumed and why. If any assumption is wrong, it is cheap to reverse.
 10. **The hosted Vercel backend has no chain access.** Serverless cannot keep
     a local node, so on the hosted deployment chain-dependent endpoints
     return the standard `CHAIN_ERROR` envelope and evidence stays
-    `AI-extracted (unverified)`. The offline demo on the laptop runs the full
+    `Unverified`. The offline demo on the laptop runs the full
     on-chain path; the hosted deployment demonstrates the rest. This is a
     hosting-environment fact, not a product limitation.
 
@@ -104,7 +105,7 @@ assumed and why. If any assumption is wrong, it is cheap to reverse.
 
 20. **A bare SHA-256 alone cannot identify its credential.** A tampered copy
     hashes to something no credential anchors, so `POST /api/verify/hash`
-    without a `credential_id` correctly reports `Unknown`. The Tampered
+    without a `credential_id` correctly reports `Not found`. The Tampered
     verdict is earned by checking a presented hash *against* a specific
     credential, which is exactly what the receipt permalink / QR flow and
     the evidence page do (they pass `credential_id`). The receipt page
@@ -124,14 +125,47 @@ assumed and why. If any assumption is wrong, it is cheap to reverse.
     403 so a hosted deployment can never be wiped by a stray click.
 23. **`./make demo-check` starts its own server** on a free port, resets the
     data through the API, walks the whole demo path (upload, analyze, issue,
-    verify, tamper, fail, revoke, show revoked, recruiter match, audit) and
+    verify, tamper, fail, revoke, show revoked, guest job match, audit) and
     shuts down. It needs no server running beforehand; the first on-chain
     issue may start the Hardhat node, so the check allows long timeouts.
 24. **web3 v7 strict typing: bytes32 args take raw bytes.** Passing hex
     strings to `issueCredential` fails type checks; the adapter converts.
 25. **Seed contents:** 1 student (backend-generated wallet), 1 issuer, 1
-    recruiter; Python certificate issued and verified; SQL certificate issued
+    admin; Python certificate issued and verified; SQL certificate issued
     then revoked ("enrollment cancelled by the registrar"); Excel certificate
-    left AI-extracted (unverified); tampered copy pre-staged on the Python
-    one; 2 sample projects. All PDFs are real generated files labeled
-    "Sample data".
+    left Unverified; tampered copy pre-staged on the Python one; 2 sample
+    projects; a guest share token for the student. All PDFs are real
+    generated files labeled "Sample data".
+
+## Revised-spec rework (P0 deltas, October 2026)
+
+26. **Recruiters became guests; the directory is gone.** The recruiter demo
+    login, the candidate directory and public profiles were removed
+    (`404` today). A student mints exactly one share token
+    (`POST /api/profile/share-link`, audited as SHARE_LINK); guests open
+    `/s/<token>` for profile, skills, credentials with on-chain proof, and a
+    guest job match. Bad tokens 404; guests cannot download files or
+    enumerate anything.
+27. **The student approval gate is enforced server-side.**
+    `Evidence.skills_approved` must be true before evidence reaches the
+    issuer queue or can be anchored (`409` otherwise). Students confirm via
+    `POST /api/evidence/{id}/approve-skills`.
+28. **The registry gained a reverse index.** `hashToCredentialId` maps each
+    document hash to its credential ID (set in `issueCredential`), with
+    `getCredentialByHash()` and duplicate-hash rejection
+    (`DuplicateDocumentHash`). A bare file hash is therefore enough to find
+    its record; the backend's `lookup_by_hash()` wraps it, with the DB
+    mirror as a chain-outage fallback only.
+29. **Tampering is an admin demo action.** The old student-facing tamper
+    endpoints were removed; `POST /api/demo/tamper/{credential_id}` is
+    dev-only and admin-only, flips one byte in a stored copy, marks the
+    evidence page HASH MISMATCH, and audits a TAMPER entry labeled
+    `off-chain` in the public audit log.
+30. **The audit log is fully public and PII-free.** `GET /api/audit` reads
+    chain events (CredentialIssued / CredentialRevoked) or, when the node is
+    unreachable, the same facts from local mirror rows, plus off-chain
+    tamper entries. Rows carry event, source, credential ID, doc hash,
+    issuer address, tx hash, block and timestamp only.
+31. **`users.share_token` is nullable.** An empty-string default collided
+    with the unique index; `NULL` (one token max per student) is the
+    default. `db.init_db` adds new SQLite columns automatically on boot.

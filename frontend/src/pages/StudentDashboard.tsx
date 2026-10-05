@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiGet, apiPost, ApiError, apiUpload } from "../lib/api";
+import { apiGet, apiUpload } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import type { Credential, Evidence } from "../lib/types";
 import TrustBadge from "../components/TrustBadge";
@@ -43,7 +43,7 @@ export default function StudentDashboard() {
       form.append("file", file);
       if (title.trim()) form.append("title", title.trim());
       await apiUpload<Evidence>("/api/evidence", form);
-      setNotice(`Analyzed ${file.name}. The agents' reading is AI-extracted (unverified) until the issuer confirms it.`);
+      setNotice(`Analyzed ${file.name}. The agents' reading is Unverified until the issuer confirms it.`);
       setTitle("");
       await reload();
     } catch (e) {
@@ -53,29 +53,8 @@ export default function StudentDashboard() {
     }
   }
 
-  async function resetDemo() {
-    setError("");
-    setNotice("");
-    setBusy(true);
-    try {
-      await apiPost("/api/demo/reset");
-      setNotice("Demo data reset. Sample certificates, credentials and the tampered copy are back.");
-      await reload();
-    } catch (e) {
-      setError(
-        e instanceof ApiError && e.status === 404
-          ? "Demo reset arrives with the seed script (./make seed)."
-          : e instanceof Error
-            ? e.message
-            : String(e),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const verifiedSkills = new Set(
-    evidence.flatMap((e) => (e.credential && !e.credential.revoked && e.trust_state === "Issuer-verified" ? e.skills.filter((s) => s.verified).map((s) => s.id) : [])),
+    evidence.flatMap((e) => (e.credential && !e.credential.revoked && e.trust_state === "Verified" ? e.skills.filter((s) => s.verified).map((s) => s.id) : [])),
   );
 
   return (
@@ -123,12 +102,9 @@ export default function StudentDashboard() {
               Career gap
             </Link>
             <Link to="/profile" className="border border-ink px-3 py-1">
-              Profile and privacy
+              Profile and share link
             </Link>
           </div>
-          <button onClick={resetDemo} disabled={busy} className="mt-4 border border-ink px-3 py-1 text-xs">
-            Reset demo data
-          </button>
         </div>
 
         {error && <p className="mt-4 text-sm text-rust">{error}</p>}
@@ -139,7 +115,7 @@ export default function StudentDashboard() {
         <h2 className="font-display text-2xl">Evidence</h2>
         {evidence.length === 0 ? (
           <p className="mt-3 text-sm border border-ink bg-surface px-4 py-3">
-            Nothing uploaded yet. Your first certificate appears here as AI-extracted (unverified)
+            Nothing uploaded yet. Your first certificate appears here as Unverified
             with the full agent trace.
           </p>
         ) : (
@@ -153,6 +129,13 @@ export default function StudentDashboard() {
                 <span className="text-xs">
                   {e.file_name} · {fmtBytes(e.file_size)} · {fmtDate(e.created_at)}
                 </span>
+                {!e.credential && (
+                  <span className="text-xs">
+                    {e.skills_approved
+                      ? "Awaiting issuer confirmation"
+                      : "Review and approve the skills to request confirmation"}
+                  </span>
+                )}
                 {e.credential && !e.credential.revoked && (
                   <Link
                     to={`/receipt/${e.credential.id}?hash=${e.sha256}`}
@@ -177,7 +160,7 @@ export default function StudentDashboard() {
             {credentials.map((c) => (
               <li key={c.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <TrustBadge state={c.revoked ? "Revoked" : "Issuer-verified"} />
+                  <TrustBadge state={c.revoked ? "Revoked" : "Verified"} />
                   <Link to={`/receipt/${c.id}?hash=${c.doc_hash}`} className="text-sm underline underline-offset-4">
                     {c.issuer_org || c.issuer_name}
                   </Link>

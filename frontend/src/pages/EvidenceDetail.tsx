@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiGet, apiPost, apiUrl } from "../lib/api";
-import type { Evidence, VerifyResult } from "../lib/types";
+import type { Evidence } from "../lib/types";
 import TrustBadge from "../components/TrustBadge";
 import AgentTrace from "../components/AgentTrace";
 import HashCompare from "../components/HashCompare";
 import { fmtBytes, fmtDate } from "../lib/format";
+import { useAuth } from "../lib/auth";
 
-/** Evidence detail: extracted fields, agent trace, on-chain proof, demo tamper. */
+/** Evidence detail: extracted fields, skill approval, agent trace, on-chain proof. */
 export default function EvidenceDetail() {
   const { evidenceId } = useParams();
+  const { user } = useAuth();
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tamper, setTamper] = useState<{ tampered_sha256: string; original_sha256: string; note: string } | null>(null);
-  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [notice, setNotice] = useState("");
 
   const reload = useCallback(async () => {
     if (!evidenceId) return;
@@ -50,12 +51,12 @@ export default function EvidenceDetail() {
     }
   }
 
-  async function doTamper() {
+  async function approveSkills() {
     setBusy(true);
     setError("");
-    setVerifyResult(null);
     try {
-      setTamper(await apiPost(`/api/evidence/${evidenceId}/tamper`));
+      await apiPost(`/api/evidence/${evidenceId}/approve-skills`);
+      setNotice("Skills approved. The issuer now sees this evidence in the confirmation queue.");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -64,26 +65,8 @@ export default function EvidenceDetail() {
     }
   }
 
-  async function verifyTampered() {
-    if (!tamper) return;
-    setBusy(true);
-    setError("");
-    try {
-      // A bare hash maps to no credential, so pass the id (same as the receipt link).
-      setVerifyResult(
-        await apiPost<VerifyResult>("/api/verify/hash", {
-          sha256: tamper.tampered_sha256,
-          credential_id: cred?.id ?? undefined,
-        }),
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const receiptLink = cred ? `${window.location.origin}/receipt/${cred.id}?hash=${evidence.sha256}` : "";
+  const isOwnerView = user?.role === "student" && evidence.student?.id === user.id;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -97,7 +80,7 @@ export default function EvidenceDetail() {
         <h1 className="mt-3 font-display text-3xl font-semibold">{evidence.title || evidence.file_name}</h1>
 
         <h2 className="mt-6 text-xs uppercase tracking-wide border-b border-ink pb-1">
-          What the agents read (AI-extracted, unverified)
+          What the agents read (Unverified — never proof)
         </h2>
         <dl className="mt-3 text-sm space-y-2">
           <Row label="Title" value={ex.title} />
@@ -134,15 +117,29 @@ export default function EvidenceDetail() {
           ))}
         </ul>
 
+        {!cred && evidence.skills_approved && (
+          <p className="mt-4 text-xs border border-ink bg-surface px-3 py-2">
+            Skills approved. Waiting for the issuer to confirm and anchor the hash on-chain.
+          </p>
+        )}
+        {!cred && !evidence.skills_approved && isOwnerView && (
+          <div className="mt-4 border border-ink p-3">
+            <p className="text-xs">
+              Review the extracted skills above. Approving them requests issuer confirmation —
+              it never makes anything verified by itself.
+            </p>
+            <button onClick={approveSkills} disabled={busy} className="mt-2 bg-rust text-paper px-4 py-1 text-xs">
+              Approve skills &amp; request confirmation
+            </button>
+          </div>
+        )}
+
         <div className="mt-6 flex flex-wrap gap-2">
           <a href={apiUrl(`/api/evidence/${evidence.id}/file`)} className="border border-ink px-3 py-1 text-xs" target="_blank" rel="noreferrer">
             Download file
           </a>
           <button onClick={runVerify} disabled={busy} className="border border-ink px-3 py-1 text-xs">
             Run integrity check now
-          </button>
-          <button onClick={doTamper} disabled={busy} className="border border-rust text-rust px-3 py-1 text-xs">
-            Tamper with this file (demo)
           </button>
           {cred && (
             <button
@@ -159,32 +156,21 @@ export default function EvidenceDetail() {
           )}
         </div>
 
-        {tamper && (
+        {cred && cred.revoked === false && evidence.trust_state === "Tampered" && (
           <div className="mt-4 border border-rust p-3 text-xs">
-            <p>{tamper.note}</p>
-            <p className="mt-1 font-mono mono-break">Tampered copy hash: {tamper.tampered_sha256}</p>
-            <button onClick={verifyTampered} disabled={busy} className="mt-2 border border-ink px-3 py-1">
-              Verify the tampered hash now
-            </button>
-            <a
-              href={apiUrl(`/api/evidence/${evidence.id}/tamper-file`)}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-2 underline underline-offset-4"
-            >
-              Download tampered copy
-            </a>
-          </div>
-        )}
-
-        {verifyResult && (
-          <div className="mt-4">
-            <p className="text-xs uppercase tracking-wide mb-2">Public verification of the tampered copy</p>
-            <VerifyInline result={verifyResult} />
+            <p className="font-semibold">HASH MISMATCH</p>
+            <p className="mt-1">
+              A tampered copy of this document was detected. The on-chain record is untouched; the
+              comparison below shows the original (as issued) vs the tampered copy.
+            </p>
+            <div className="mt-2">
+              <HashCompare presented={evidence.tampered_sha256 ?? evidence.sha256} onchain={cred.doc_hash} />
+            </div>
           </div>
         )}
 
         {error && <p className="mt-4 text-sm text-rust">{error}</p>}
+        {notice && <p className="mt-4 text-sm">{notice}</p>}
         {busy && <p className="mt-4 text-sm">Loading</p>}
       </section>
 
@@ -235,20 +221,6 @@ function Row({ label, value, mono }: { label: string; value?: string; mono?: boo
     <div>
       <dt className="text-xs uppercase tracking-wide">{label}</dt>
       <dd className={`mt-0.5 ${mono ? "font-mono text-xs mono-break" : ""}`}>{value || "not found"}</dd>
-    </div>
-  );
-}
-
-function VerifyInline({ result }: { result: VerifyResult }) {
-  return (
-    <div className="border border-ink px-3 py-2">
-      <div className="flex items-center gap-3">
-        <TrustBadge state={result.state} />
-        <span className="text-xs">{result.reason}</span>
-      </div>
-      <div className="mt-2">
-        <HashCompare presented={result.presented_hash} onchain={result.onchain_hash} />
-      </div>
     </div>
   );
 }

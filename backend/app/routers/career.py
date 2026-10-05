@@ -1,6 +1,6 @@
 """Career gap (student) and recruiter job match (feature 4)."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from ..agents.career import load_roles
@@ -8,7 +8,7 @@ from ..agents.orchestrator import career_gap, job_match
 from ..db import get_db
 from ..models import User
 from ..schemas import JobMatchRequest
-from ..security import get_current_user, require_roles
+from ..security import require_roles
 
 router = APIRouter(prefix="/api/career", tags=["career"])
 
@@ -39,20 +39,10 @@ def gap(
 @router.post("/job-match")
 def job_match_endpoint(
     payload: JobMatchRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("student")),
     db: Session = Depends(get_db),
 ):
-    """Recruiter flow: paste a JD, get a score from issuer-verified skills
-    only, with unverified skills listed separately and reasoning shown.
-    Students can also self-check against a posting."""
-    candidate: User = user
-    if user.role == "recruiter":
-        if not payload.candidate_id:
-            raise HTTPException(
-                status_code=422, detail="Recruiters must pass candidate_id (the student to match)"
-            )
-        found = db.get(User, payload.candidate_id)
-        if found is None or found.role != "student":
-            raise HTTPException(status_code=404, detail="Candidate not found")
-        candidate = found
-    return job_match(db, payload.job_description, payload.role_hint, candidate)
+    """Student self-check: paste a JD, get a score from issuer-verified
+    skills only, with unverified skills listed separately. Guests use the
+    share-link variant /api/share/{token}/job-match instead."""
+    return job_match(db, payload.job_description, payload.role_hint, candidate=user, actor=user)
