@@ -38,6 +38,17 @@ def _repo_root() -> Path:
     return (Path(__file__).resolve().parents[1] / settings.repo_root).resolve()
 
 
+def _web3():
+    """Lazy web3 import. The serverless deployment installs a lean
+    requirements.txt without the chain extras, so the module itself can be
+    missing; raise the caller-expected ChainError instead of crashing."""
+    try:
+        from web3 import Web3
+    except ImportError as exc:
+        raise ChainError("web3 is not installed on this deployment (chain extras omitted)") from exc
+    return Web3
+
+
 def _npx() -> str:
     import os
     import shutil
@@ -123,7 +134,7 @@ def _deploy() -> str:
 def get_w3_and_contract() -> tuple[Any, Any]:
     """Return a cached (web3 client, contract) pair, starting and deploying
     the local chain automatically when possible."""
-    from web3 import Web3
+    Web3 = _web3()
 
     key = f"{settings.chain_rpc_url}"
     with _lock:
@@ -226,7 +237,7 @@ def _send(contract_call) -> dict[str, Any]:
 
 def new_credential_id32() -> bytes:
     """Fresh unique bytes32 credential id (keccak of a uuid)."""
-    from web3 import Web3
+    Web3 = _web3()
 
     return Web3.keccak(text=str(uuid.uuid4()))
 
@@ -234,7 +245,7 @@ def new_credential_id32() -> bytes:
 def issue_onchain(doc_hash: str, recipient: str) -> dict[str, Any]:
     """Anchor doc_hash (0x-hex bytes32) for the recipient. Returns
     {chain_credential_id, doc_hash, tx_hash, block_number, issuer, recipient}."""
-    from web3 import Web3
+    Web3 = _web3()
 
     _, contract = get_w3_and_contract()
     credential_id = new_credential_id32()
@@ -258,7 +269,7 @@ def lookup_by_hash(doc_hash: str) -> dict[str, Any] | None:
     """Reverse-index lookup: the on-chain record for one document hash, or
     None when that exact file was never anchored. Raises ChainError when the
     chain itself is unreachable so callers can fall back to their own index."""
-    from web3 import Web3
+    Web3 = _web3()
     from web3.exceptions import ContractLogicError
 
     _, contract = get_w3_and_contract()
@@ -293,6 +304,7 @@ def verify_onchain(chain_credential_id: str, presented_doc_hash: str) -> int:
     """Compare a presented 64-hex digest with the anchored record on-chain.
     Accepts the hash with or without the 0x prefix."""
 
+    _web3()
     _, contract = get_w3_and_contract()
     id_bytes = bytes.fromhex(chain_credential_id[2:])
     bare = presented_doc_hash.strip().lower().removeprefix("0x")
@@ -301,8 +313,7 @@ def verify_onchain(chain_credential_id: str, presented_doc_hash: str) -> int:
 
 
 def get_onchain_credential(chain_credential_id: str) -> dict[str, Any]:
-    from web3 import Web3
-
+    Web3 = _web3()
     _, contract = get_w3_and_contract()
     record = contract.functions.getCredential(bytes.fromhex(chain_credential_id[2:])).call()
     (doc_hash, issuer, recipient, issued_at, revoked_at, revoke_reason, revoked, exists) = record
@@ -319,6 +330,7 @@ def get_onchain_credential(chain_credential_id: str) -> dict[str, Any]:
 
 
 def revoke_onchain(chain_credential_id: str, reason: str) -> dict[str, Any]:
+    _web3()
     _, contract = get_w3_and_contract()
     call = contract.functions.revokeCredential(bytes.fromhex(chain_credential_id[2:]), reason)
     sent = _send(call)

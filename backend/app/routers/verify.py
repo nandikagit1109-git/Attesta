@@ -56,12 +56,11 @@ def _audit_verify(db: Session, sha256: str, result_state: str, candidates: int) 
 
 
 def _result_for_credential(cred: Credential, presented: str) -> dict:
-    """Verify one credential against a presented hash, on-chain."""
-    try:
-        status = chain.verify_onchain(cred.chain_credential_id, presented)
-        record = chain.get_onchain_credential(cred.chain_credential_id)
-    except chain.ChainError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    """Verify one credential against a presented hash, on-chain. Propagates
+    chain.ChainError so callers can decide between a 503 and their own
+    fallback (the DB mirror when the node is unreachable)."""
+    status = chain.verify_onchain(cred.chain_credential_id, presented)
+    record = chain.get_onchain_credential(cred.chain_credential_id)
     state, reason = _STATUS_TO_STATE[status]
     return {
         "credential_id": cred.id,
@@ -78,6 +77,40 @@ def _result_for_credential(cred: Credential, presented: str) -> dict:
         "revoked": record["revoked"],
         "revoked_at": cred.revoked_at.isoformat() if cred.revoked_at else None,
         "revoke_reason": record["revoke_reason"],
+        "evidence_title": cred.evidence.title if cred.evidence else "",
+    }
+
+
+def _mirror_result(cred: Credential, presented: str) -> dict:
+    """Chain-down fallback: decide from the server's mirror row only. This is
+    the one path where Attesta's own database stands in for the chain, so the
+    reason says exactly that; there is nothing to prove without the node."""
+    anchored = cred.doc_hash.lower()
+    match = anchored == presented.lower()
+    if cred.revoked:
+        state = TrustState.REVOKED.value
+        reason = "The original issuer revoked this credential (chain unreachable; shown from the server's mirror)"
+    elif match:
+        state = TrustState.VERIFIED.value
+        reason = "Matches the server's mirror of the chain record (chain unreachable)"
+    else:
+        state = TrustState.TAMPERED.value
+        reason = "Presented hash differs from the mirrored on-chain record (chain unreachable)"
+    return {
+        "credential_id": cred.id,
+        "state": state,
+        "reason": reason,
+        "presented_hash": presented,
+        "onchain_hash": anchored,
+        "hash_match": match,
+        "issuer_address": cred.issuer_address,
+        "recipient_address": "",
+        "block_number": cred.block_number,
+        "tx_hash": cred.tx_hash,
+        "issued_at": cred.issued_at.isoformat() if cred.issued_at else None,
+        "revoked": cred.revoked,
+        "revoked_at": cred.revoked_at.isoformat() if cred.revoked_at else None,
+        "revoke_reason": cred.revoke_reason,
         "evidence_title": cred.evidence.title if cred.evidence else "",
     }
 
@@ -103,7 +136,14 @@ def _verify_hash(db: Session, sha256: str, credential_id: str | None) -> dict:
         by_id = db.query(Credential).filter(Credential.id == credential_id).first()
         if by_id is None:
             raise HTTPException(status_code=404, detail="Credential not found")
-        result = _result_for_credential(by_id, sha256)
+        try:
+            result = _result_for_credential(by_id, sha256)
+        except chain.ChainError:
+            # Hosted deployments run without the chain (lean requirements);
+            # fall back to the DB mirror so receipts and QR links still work.
+            if chain.is_reachable():
+                raise HTTPException(status_code=503, detail="Chain error") from None
+            result = _mirror_result(by_id, sha256)
         _audit_verify(db, sha256, result["state"], 1)
         # Copy into candidates: never let the payload contain itself, or
         # JSON encoding recurses forever.
@@ -162,7 +202,7 @@ def _verify_hash(db: Session, sha256: str, credential_id: str | None) -> dict:
     if not candidates:
         return _not_found(db, sha256)
 
-    results = [_result_for_credential(cred, sha256) for cred in candidates]
+    results = [_mirror_result(cred, sha256) for cred in candidates]
     results.sort(key=lambda r: _HEADLINE_ORDER.get(r["state"], 9))
     # Copy into candidates: never let the payload contain itself, or
     # JSON encoding recurses forever.
