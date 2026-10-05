@@ -1,4 +1,4 @@
-# Render Blueprint — TrustPass backend (FastAPI)
+# Render Blueprint — Attesta backend (FastAPI)
 # One click: https://render.com/deploy?repo=<your-repo-url>
 # Free instance = ephemeral disk (SQLite resets on redeploy); swap in Postgres
 # via DATABASE_URL for persistence beyond the demo.
