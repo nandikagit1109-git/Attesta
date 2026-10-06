@@ -8,7 +8,7 @@ profiles, audit log). This module is also the Vercel serverless entrypoint
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
@@ -88,6 +88,25 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(VercelPathRewriteMiddleware)
     register_error_handlers(app)
+
+    @app.get("/", include_in_schema=False)
+    def root() -> dict:
+        # People open the API URL directly (judges, students, curl). Greet
+        # them with where to go instead of a bare 404.
+        return {
+            "app": settings.app_name,
+            "status": "ok",
+            "docs": "/docs",
+            "health": "/api/health",
+            "public_verify": 'POST /api/verify/hash {"sha256": "<64 hex>"}',
+        }
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> Response:
+        # Browsers request this automatically on any direct visit; there is
+        # nothing to serve, so answer quietly instead of a console 404.
+        return Response(status_code=204)
+
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(evidence.router)
